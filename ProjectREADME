@@ -1,0 +1,50 @@
+Visitor Management System (VMS)
+This project is a complete visitor management system with a web portal for administrators and guards, and a mobile application for guards.
+
+Project Structure
+This repository contains three main sub-projects:
+
+/vms-backend: The Node.js, Express, and PostgreSQL backend API.
+
+/vms-frontend: The React web application for admins and guards.
+
+/vmsmobile: The React Native (Expo) mobile application for guards.
+
+Getting Started
+1. Start the Database
+
+The database runs in a Docker container. Make sure you have Docker Desktop installed and running.
+
+# From the root 'vms' directory
+docker-compose up -d
+
+2. Run the Backend Server
+
+Navigate into the backend folder, install dependencies, and start the server.
+
+cd vms-backend
+npm install
+npm run dev
+
+The backend will be running at http://localhost:8080.
+
+3. Run the Frontend Web App
+
+In a new terminal, navigate into the frontend folder, install dependencies, and start the server.
+
+cd vms-frontend
+npm install
+npm run dev
+
+The web app will be accessible at http://localhost:5173.
+
+4. Run the Mobile App
+
+In another new terminal, navigate into the mobile folder, install dependencies, and start the server.
+
+cd vmsmobile
+npm install
+npx expo start
+
+Scan the QR code with the Expo Go app on your phone to run the mobile app.
+

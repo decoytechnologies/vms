@@ -1,0 +1,21 @@
+# This file manages the PostgreSQL database container for the VMS project.
+# Run 'docker-compose up -d' to start the database.
+# Run 'docker-compose down -v' to stop and remove the database and its data.
+
+version: '3.8'
+services:
+  db:
+    image: postgres:15
+    container_name: vms_postgres_db
+    restart: always
+    environment:
+      POSTGRES_USER: vmsuser
+      POSTGRES_PASSWORD: vmspassword
+      POSTGRES_DB: vms_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

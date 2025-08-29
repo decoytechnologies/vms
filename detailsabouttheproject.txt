@@ -1,0 +1,91 @@
+Core Backend Features (The "Engine")
+
+Multi-Tenant Architecture: The entire system is built to support multiple companies. All data (visitors, employees, logs) is kept completely separate for each tenant.
+
+Secure Authentication:
+
+Guard Login: A simple and secure PIN-based login system for guards.
+
+Admin Login: A robust login system for administrators, ready for real Microsoft and Google accounts, with a "dummy" login for easy local testing.
+
+Session Management: Uses modern JWT (JSON Web Tokens) to keep users securely logged in.
+
+Complete Visitor Workflow:
+
+Check-in: Captures all required visitor details, including name, email, phone, host employee, and photos.
+
+Check-out: Allows guards to mark visitors as having left, recording the checkout time.
+
+Automated Approval System (Ready for Production):
+
+Integrates with Microsoft Graph API to read a designated Outlook inbox for pre-approval emails.
+
+Can send real-time approval requests with "Approve/Deny" buttons to employees via Microsoft Teams.
+
+Integrates with Google Workspace to perform the same approval checks on a designated Gmail account and send notifications to Google Chat.
+
+Intelligent Search & Data Handling:
+
+Autocomplete Search: Provides fast, "Google-like" search suggestions for employees and returning visitors.
+
+Returning Visitor Detection: Automatically identifies visitors who have been to the office before and can pre-fill their information.
+
+File Storage: Securely uploads all captured photos (visitor and ID card) to your private AWS S3 bucket, organized by company.
+
+Reporting APIs:
+
+End-of-Day Report: An endpoint that calculates who is still inside and who has left for the day.
+
+Visitor History Report: An endpoint to fetch a complete visit history for any specific employee.
+
+Frontend Web App Features (The "Portals")
+
+Modern, Branded Login: A visually appealing and interactive login screen that displays your company logo and allows users to select their role.
+
+Guard Portal:
+
+A dedicated, simple dashboard designed for guards.
+
+Features the full Visitor Check-in form with a live webcam feed.
+
+Includes autocomplete search for finding the host employee quickly.
+
+Has the returning visitor lookup that pre-fills data when a known phone number is entered.
+
+Restricts phone numbers to 10 digits.
+
+Displays a real-time list of all visitors currently inside with a one-click "Check Out" button.
+
+Admin Dashboard:
+
+A secure, multi-featured dashboard for administrators.
+
+Displays a Full Visitor Log with details of every visit.
+
+Includes the one-click End-of-Day Report.
+
+Features the powerful Visitor History by Employee search tool with live autocomplete suggestions.
+
+Mobile App Features (For Guards on the Go)
+
+Native Mobile Experience: A clean, modern, and easy-to-use app built with Expo.
+
+Branded Interface: Displays your company logo on both the login and main check-in screens.
+
+Full Guard Workflow:
+
+Includes the complete guard login and visitor check-in process.
+
+Uses the phone's native camera for high-quality photo capture.
+
+Features autocomplete search for both returning visitors (by phone number) and host employees.
+
+Restricts phone numbers to 10 digits.
+
+Includes a Logout button.
+
+User-Friendly Design:
+
+The screen automatically scrolls to keep input fields visible when the keyboard is open.
+
+Tapping anywhere outside an input field dismisses the keyboard.
