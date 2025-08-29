@@ -1,10 +1,12 @@
-// vms-backend/src/models/guard.model.js
+// src/models/guard.model.js
 const bcrypt = require('bcrypt');
 
 module.exports = (sequelize, DataTypes) => {
   const Guard = sequelize.define('Guard', {
     id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
     name: { type: DataTypes.STRING, allowNull: false },
+    email: { type: DataTypes.STRING, allowNull: true, validate: { isEmail: true } },
+    phone: { type: DataTypes.STRING, allowNull: true },
     pinHash: { type: DataTypes.STRING, allowNull: false },
     isActive: { type: DataTypes.BOOLEAN, defaultValue: true },
   }, {
@@ -13,7 +15,9 @@ module.exports = (sequelize, DataTypes) => {
         if (guard.pinHash) guard.pinHash = await bcrypt.hash(guard.pinHash, 10);
       },
       beforeUpdate: async (guard) => {
-        if (guard.changed('pinHash')) guard.pinHash = await bcrypt.hash(guard.pinHash, 10);
+        if (guard.pinHash && guard.changed('pinHash')) {
+          guard.pinHash = await bcrypt.hash(guard.pinHash, 10);
+        }
       },
     }
   });
