@@ -17,4 +17,7 @@ router.get('/reports/history-by-employee', [protect, isAdmin], adminController.g
 router.get('/employees/search', [protect, isAdmin], adminController.searchEmployees);
 router.get('/reports/download-log', [protect, isAdmin], adminController.downloadVisitorLog);
 
+// New route to get secure image URLs for a visit
+router.get('/visits/:visitId/images', [protect, isAdmin], adminController.getVisitImageUrls);
+
 module.exports = router;

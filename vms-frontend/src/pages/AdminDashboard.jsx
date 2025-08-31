@@ -52,15 +52,21 @@ const TabButton = ({ title, isActive, onClick }) => (
 );
 
 const Card = ({ children, className }) => (
-    <div className={`bg-white p-6 rounded-lg shadow-lg ${className}`}>
-        {children}
-    </div>
+  <div className={`bg-white p-6 rounded-lg shadow-lg ${className}`}>
+    {children}
+  </div>
+);
+
+const CardTitle = ({ children }) => (
+  <h2 className="text-xl font-semibold text-gray-700 mb-4">{children}</h2>
 );
 
 // --- Visitor Log Tab Component ---
 const VisitorLogTab = () => {
   const [visits, setVisits] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedVisit, setSelectedVisit] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     apiClient.get('/admin/visits').then(res => setVisits(res.data)).finally(() => setLoading(false));
@@ -72,7 +78,8 @@ const VisitorLogTab = () => {
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `visitor-report-${new Date().toISOString().split('T')[0]}.csv`);
+      const today = new Date().toISOString().slice(0, 10);
+      link.setAttribute('download', `visitor-report-${today}.csv`);
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -80,209 +87,160 @@ const VisitorLogTab = () => {
       alert('Failed to download report.');
     }
   };
+  
+  const openVisitorDetails = (visit) => {
+    setSelectedVisit(visit);
+    setIsModalOpen(true);
+  };
 
   return (
-    <Card>
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold text-gray-700">Full Visitor Log</h2>
-        <button onClick={handleDownload} className="flex items-center space-x-2 bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg transition">
-          <Download size={18} />
-          <span>Download CSV</span>
-        </button>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="min-w-full bg-white">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="text-left py-3 px-4 uppercase font-semibold text-sm text-gray-600">Visitor</th>
-              <th className="text-left py-3 px-4 uppercase font-semibold text-sm text-gray-600">Host Employee</th>
-              <th className="text-left py-3 px-4 uppercase font-semibold text-sm text-gray-600">Check-in</th>
-              <th className="text-left py-3 px-4 uppercase font-semibold text-sm text-gray-600">Check-out</th>
-              <th className="text-left py-3 px-4 uppercase font-semibold text-sm text-gray-600">Length of Stay</th>
-              <th className="text-left py-3 px-4 uppercase font-semibold text-sm text-gray-600">Status</th>
-            </tr>
-          </thead>
-          <tbody className="text-gray-700">
-            {loading ? (
+    <>
+      <Card>
+        <div className="flex flex-wrap justify-between items-center mb-4 gap-4">
+          <CardTitle>Full Visitor Log</CardTitle>
+          <button onClick={handleDownload} className="flex items-center space-x-2 bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg transition-transform transform hover:scale-105">
+            <Download size={18} />
+            <span>Download CSV</span>
+          </button>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full bg-white">
+            <thead className="bg-gray-200">
+              <tr>
+                <th className="text-left py-3 px-4 uppercase font-semibold text-sm">Visitor</th>
+                <th className="text-left py-3 px-4 uppercase font-semibold text-sm">Host Employee</th>
+                <th className="text-left py-3 px-4 uppercase font-semibold text-sm">Check-in</th>
+                <th className="text-left py-3 px-4 uppercase font-semibold text-sm">Check-out</th>
+                <th className="text-left py-3 px-4 uppercase font-semibold text-sm">Length of Stay</th>
+                <th className="text-left py-3 px-4 uppercase font-semibold text-sm">Status</th>
+              </tr>
+            </thead>
+            <tbody className="text-gray-700">
+              {loading ? (
                 <tr><td colSpan="6" className="text-center py-4">Loading...</td></tr>
-            ) : visits.map(visit => {
-              let lengthOfStay = 'N/A';
-              if (visit.actualCheckOutTimestamp) {
-                const durationMs = new Date(visit.actualCheckOutTimestamp) - new Date(visit.checkInTimestamp);
-                const hours = Math.floor(durationMs / 3600000);
-                const minutes = Math.round((durationMs % 3600000) / 60000);
-                lengthOfStay = `${hours}h ${minutes}m`;
-              }
-              return (
-                <tr key={visit.id} className="border-b border-gray-200 hover:bg-gray-50">
-                  <td className="py-3 px-4">{visit.Visitor?.name || 'N/A'}</td>
-                  <td className="py-3 px-4">{visit.Employee?.name || 'N/A'}</td>
-                  <td className="py-3 px-4">{new Date(visit.checkInTimestamp).toLocaleString()}</td>
-                  <td className="py-3 px-4">{visit.actualCheckOutTimestamp ? new Date(visit.actualCheckOutTimestamp).toLocaleString() : 'Still Inside'}</td>
-                  <td className="py-3 px-4">{lengthOfStay}</td>
-                  <td className="py-3 px-4">
-                    <span className={`py-1 px-3 rounded-full text-xs font-medium ${ visit.status === 'CHECKED_IN' ? 'bg-green-100 text-green-700' : visit.status === 'CHECKED_OUT' ? 'bg-gray-200 text-gray-600' : 'bg-yellow-100 text-yellow-700' }`}>
-                      {visit.status.replace('_', ' ')}
-                    </span>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </Card>
+              ) : visits.map(visit => {
+                let lengthOfStay = 'N/A';
+                if (visit.actualCheckOutTimestamp) {
+                  const durationMs = new Date(visit.actualCheckOutTimestamp) - new Date(visit.checkInTimestamp);
+                  const hours = Math.floor(durationMs / 3600000);
+                  const minutes = Math.floor((durationMs % 3600000) / 60000);
+                  lengthOfStay = `${hours}h ${minutes}m`;
+                }
+                return (
+                  <tr key={visit.id} className="border-b hover:bg-gray-50">
+                    <td className="text-left py-3 px-4">
+                      <button onClick={() => openVisitorDetails(visit)} className="text-blue-600 hover:underline font-semibold">{visit.Visitor?.name || 'N/A'}</button>
+                    </td>
+                    <td className="text-left py-3 px-4">{visit.Employee?.name || 'N/A'}</td>
+                    <td className="text-left py-3 px-4">{new Date(visit.checkInTimestamp).toLocaleString()}</td>
+                    <td className="text-left py-3 px-4">{visit.actualCheckOutTimestamp ? new Date(visit.actualCheckOutTimestamp).toLocaleString() : 'Still Inside'}</td>
+                    <td className="text-left py-3 px-4">{lengthOfStay}</td>
+                    <td className="text-left py-3 px-4">
+                      <span className={`py-1 px-3 rounded-full text-xs font-medium ${ visit.status === 'CHECKED_IN' ? 'bg-green-200 text-green-800' : visit.status === 'PENDING_APPROVAL' ? 'bg-yellow-200 text-yellow-800' : visit.status === 'CHECKED_OUT' ? 'bg-gray-200 text-gray-800' : 'bg-red-200 text-red-800'}`}>
+                        {visit.status.replace('_', ' ')}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+      {isModalOpen && <VisitorDetailsModal visit={selectedVisit} onClose={() => setIsModalOpen(false)} />}
+    </>
   );
 };
 
 // --- Reports Tab Component ---
 const ReportsTab = () => {
-    return (
-        <div className="space-y-8">
-            <EndOfDayReport />
-            <VisitorHistoryReport />
+  const [endOfDayReport, setEndOfDayReport] = useState(null);
+  const [historyReport, setHistoryReport] = useState(null);
+  const [searchEmail, setSearchEmail] = useState('');
+  const [suggestions, setSuggestions] = useState([]);
+
+  const handleShowReport = async () => {
+    const res = await apiClient.get('/admin/reports/end-of-day');
+    setEndOfDayReport(res.data);
+  };
+
+  useEffect(() => {
+    if (searchEmail.length < 3) {
+      setSuggestions([]);
+      return;
+    }
+    const handler = setTimeout(() => {
+      apiClient.get(`/admin/employees/search?query=${searchEmail}`).then(res => setSuggestions(res.data));
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchEmail]);
+
+  const handleHistorySearch = async (email) => {
+    setSearchEmail(email);
+    setSuggestions([]);
+    const res = await apiClient.get(`/admin/reports/history-by-employee?email=${email}`);
+    setHistoryReport(res.data);
+  };
+
+  const ReportList = ({ title, data, color }) => (
+    <div>
+      <h3 className={`text-lg font-semibold mb-2 text-${color}-600`}>{title} ({data.length})</h3>
+      <ul className="space-y-2">
+        {data.map(visit => (
+          <li key={visit.id} className="p-2 bg-gray-50 rounded-md text-sm">
+            <strong>{visit.Visitor.name}</strong> (Host: {visit.Employee.name})
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+
+  return (
+    <div className="space-y-8">
+      <Card>
+        <div className="flex justify-between items-center mb-4">
+          <CardTitle>End-of-Day Status</CardTitle>
+          <button onClick={handleShowReport} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">Generate Report</button>
         </div>
-    );
-};
-
-const EndOfDayReport = () => {
-    const [report, setReport] = useState(null);
-    const [loading, setLoading] = useState(false);
-
-    const handleShowReport = async () => {
-        setLoading(true);
-        try {
-            const response = await apiClient.get('/admin/reports/end-of-day');
-            setReport(response.data);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const ReportList = ({ title, data, color }) => (
-        <div>
-            <h3 className={`text-lg font-semibold mb-2 text-${color}-600`}>{title} <span className="text-gray-500 font-medium">({data.length})</span></h3>
-            {data.length > 0 ? (
-                <ul className="space-y-2">{data.map(visit => <li key={visit.id} className="p-2 bg-gray-50 rounded-md text-sm"><strong>{visit.Visitor.name}</strong> (Host: {visit.Employee.name})</li>)}</ul>
-            ) : <p className="text-sm text-gray-500">No visitors in this category.</p>}
+        {endOfDayReport && (
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6 border-t pt-4">
+            <ReportList title="Visitors Still Inside" data={endOfDayReport.stillInside} color="green" />
+            <ReportList title="Visitors Who Have Left" data={endOfDayReport.haveLeft} color="gray" />
+          </div>
+        )}
+      </Card>
+      <Card>
+        <CardTitle>Visitor History by Employee</CardTitle>
+        <div className="relative">
+          <div className="flex items-center space-x-4">
+            <input type="email" value={searchEmail} onChange={(e) => setSearchEmail(e.target.value)} placeholder="Enter host employee's email" className="w-full px-4 py-2 border border-gray-300 rounded-lg"/>
+            <button onClick={() => handleHistorySearch(searchEmail)} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">Search</button>
+          </div>
+          {suggestions.length > 0 && (
+            <ul className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg">
+              {suggestions.map(emp => (
+                <li key={emp.id} onMouseDown={() => handleHistorySearch(emp.email)} className="px-4 py-2 cursor-pointer hover:bg-gray-100">{emp.name} ({emp.email})</li>
+              ))}
+            </ul>
+          )}
         </div>
-    );
-
-    return (
-        <Card>
-            <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold text-gray-700">End-of-Day Status</h2>
-                <button onClick={handleShowReport} disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition disabled:bg-blue-400">
-                    {loading ? 'Generating...' : 'Generate Today\'s Report'}
-                </button>
-            </div>
-            {report && (
-                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6 border-t pt-4">
-                    <ReportList title="Visitors Still Inside" data={report.stillInside} color="green" />
-                    <ReportList title="Visitors Who Have Left" data={report.haveLeft} color="gray" />
-                </div>
-            )}
-        </Card>
-    );
+        {historyReport && (
+          <div className="mt-6 border-t pt-4">
+            <h3 className="text-lg font-semibold">History for: {historyReport.employee.name}</h3>
+            <ul className="mt-4 space-y-3">
+              {historyReport.visits.length > 0 ? historyReport.visits.map(visit => (
+                <li key={visit.id} className="p-3 bg-gray-50 rounded-md border">
+                  <p className="font-semibold">{visit.Visitor.name}</p>
+                  <p className="text-sm text-gray-500">{new Date(visit.checkInTimestamp).toLocaleString()}</p>
+                </li>
+              )) : <p>No history found.</p>}
+            </ul>
+          </div>
+        )}
+      </Card>
+    </div>
+  );
 };
-
-const VisitorHistoryReport = () => {
-    const [historyReport, setHistoryReport] = useState(null);
-    const [historyLoading, setHistoryLoading] = useState(false);
-    const [historyError, setHistoryError] = useState('');
-    const [searchEmail, setSearchEmail] = useState('');
-    const [suggestions, setSuggestions] = useState([]);
-    const [showSuggestions, setShowSuggestions] = useState(false);
-
-    useEffect(() => {
-        if (searchEmail.length < 3) {
-            setSuggestions([]);
-            return;
-        }
-        const handler = setTimeout(() => {
-            apiClient.get(`/admin/employees/search?query=${searchEmail}`)
-                .then(res => setSuggestions(res.data));
-        }, 300);
-        return () => clearTimeout(handler);
-    }, [searchEmail]);
-
-    const fetchHistory = async (email) => {
-        setHistoryLoading(true);
-        setHistoryReport(null);
-        setHistoryError('');
-        try {
-            const response = await apiClient.get(`/admin/reports/history-by-employee?email=${email}`);
-            setHistoryReport(response.data);
-        } catch (err) {
-            setHistoryError(err.response?.data?.message || 'Failed to generate history report.');
-        } finally {
-            setHistoryLoading(false);
-        }
-    };
-    
-    const handleFormSubmit = (e) => {
-        e.preventDefault();
-        setShowSuggestions(false);
-        fetchHistory(searchEmail);
-    };
-
-    const handleSuggestionClick = (email) => {
-        setSearchEmail(email);
-        setShowSuggestions(false);
-        fetchHistory(email);
-    };
-
-    return (
-        <Card>
-            <h2 className="text-xl font-semibold text-gray-700 mb-4">Visitor History by Employee</h2>
-            <form onSubmit={handleFormSubmit} className="relative">
-                <div className="flex items-center space-x-4">
-                    <input
-                        type="email"
-                        value={searchEmail}
-                        onChange={(e) => setSearchEmail(e.target.value)}
-                        onFocus={() => setShowSuggestions(true)}
-                        onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                        placeholder="Start typing an employee's name or email..."
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        required
-                        autoComplete="off"
-                    />
-                    <button type="submit" disabled={historyLoading} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">
-                        {historyLoading ? 'Searching...' : 'Search'}
-                    </button>
-                </div>
-                {showSuggestions && suggestions.length > 0 && (
-                    <ul className="absolute z-10 w-full md:w-3/4 mt-1 bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                        {suggestions.map(employee => (
-                            <li key={employee.id} onMouseDown={() => handleSuggestionClick(employee.email)} className="px-4 py-2 cursor-pointer hover:bg-gray-100">
-                                <p className="font-semibold">{employee.name}</p>
-                                <p className="text-sm text-gray-500">{employee.email}</p>
-                            </li>
-                        ))}
-                    </ul>
-                )}
-            </form>
-
-            {historyReport && (
-                 <div className="mt-6 border-t pt-4">
-                    <h3 className="text-lg font-semibold text-gray-800">Showing History for: {historyReport.employee.name}</h3>
-                    <ul className="mt-4 space-y-3">
-                        {historyReport.visits.length > 0 ? historyReport.visits.map(visit => (
-                            <li key={visit.id} className="p-3 bg-gray-50 rounded-md border">
-                                <p className="font-semibold text-gray-700">{visit.Visitor.name}</p>
-                                <p className="text-sm text-gray-500">{visit.Visitor.email} | {visit.Visitor.phone}</p>
-                                <p className="text-sm text-gray-500">Checked in at: {new Date(visit.checkInTimestamp).toLocaleString()}</p>
-                            </li>
-                        )) : <p>No visitor history found.</p>}
-                    </ul>
-                </div>
-            )}
-            {historyError && <p className="mt-4 text-red-500">{historyError}</p>}
-        </Card>
-    );
-};
-
 
 // --- Guard Management Tab Component ---
 const GuardManagementTab = () => {
@@ -308,14 +266,24 @@ const GuardManagementTab = () => {
     fetchGuards();
   }, []);
 
-  const handleSave = () => {
-    setIsModalOpen(false);
-    setEditingGuard(null);
-    fetchGuards();
+  const handleSave = async (guardData) => {
+    try {
+      if (editingGuard) {
+        await apiClient.put(`/admin/guards/${editingGuard.id}`, guardData);
+      } else {
+        await apiClient.post('/admin/guards', guardData);
+      }
+      fetchGuards();
+    } catch (error) {
+      alert(`Failed to save guard: ${error.response?.data?.message || error.message}`);
+    } finally {
+      setIsModalOpen(false);
+      setEditingGuard(null);
+    }
   };
-
+  
   const handleDelete = async (guardId) => {
-    if (window.confirm('Are you sure you want to delete this guard?')) {
+    if (window.confirm("Are you sure you want to delete this guard?")) {
       try {
         await apiClient.delete(`/admin/guards/${guardId}`);
         fetchGuards();
@@ -326,101 +294,131 @@ const GuardManagementTab = () => {
   };
 
   return (
-    <Card>
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold text-gray-700">Manage Guard Accounts</h2>
-        <button onClick={() => { setEditingGuard(null); setIsModalOpen(true); }} className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">
-          <UserPlus size={18} />
-          <span>Add New Guard</span>
-        </button>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="min-w-full bg-white">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="text-left py-3 px-4 uppercase font-semibold text-sm text-gray-600">Name</th>
-              <th className="text-left py-3 px-4 uppercase font-semibold text-sm text-gray-600">Email</th>
-              <th className="text-left py-3 px-4 uppercase font-semibold text-sm text-gray-600">Phone</th>
-              <th className="text-left py-3 px-4 uppercase font-semibold text-sm text-gray-600">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="text-gray-700">
-            {loading ? (
-                <tr><td colSpan="4" className="text-center py-4">Loading...</td></tr>
-            ) : guards.map(guard => (
-              <tr key={guard.id} className="border-b border-gray-200 hover:bg-gray-50">
-                <td className="py-3 px-4">{guard.name}</td>
-                <td className="py-3 px-4">{guard.email || 'N/A'}</td>
-                <td className="py-3 px-4">{guard.phone || 'N/A'}</td>
-                <td className="py-3 px-4 flex items-center space-x-3">
-                  <button onClick={() => { setEditingGuard(guard); setIsModalOpen(true); }} className="text-blue-500 hover:text-blue-700"><Edit size={18} /></button>
-                  <button onClick={() => handleDelete(guard.id)} className="text-red-500 hover:text-red-700"><Trash2 size={18} /></button>
-                </td>
+    <>
+      <Card>
+        <div className="flex justify-between items-center mb-4">
+          <CardTitle>Manage Guard Accounts</CardTitle>
+          <button onClick={() => { setEditingGuard(null); setIsModalOpen(true); }} className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">
+            <UserPlus size={18} /><span>Add New Guard</span>
+          </button>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full bg-white">
+            <thead className="bg-gray-200">
+              <tr>
+                <th className="text-left py-3 px-4 uppercase font-semibold text-sm">Name</th>
+                <th className="text-left py-3 px-4 uppercase font-semibold text-sm">Email</th>
+                <th className="text-left py-3 px-4 uppercase font-semibold text-sm">Phone</th>
+                <th className="text-left py-3 px-4 uppercase font-semibold text-sm">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {isModalOpen && <GuardModal guard={editingGuard} onClose={() => setIsModalOpen(false)} onSave={handleSave} />}
-    </Card>
+            </thead>
+            <tbody className="text-gray-700">
+              {loading ? (
+                <tr><td colSpan="4" className="text-center py-4">Loading...</td></tr>
+              ) : guards.map(guard => (
+                <tr key={guard.id} className="border-b hover:bg-gray-50">
+                  <td className="py-3 px-4">{guard.name}</td>
+                  <td className="py-3 px-4">{guard.email || 'N/A'}</td>
+                  <td className="py-3 px-4">{guard.phone || 'N/A'}</td>
+                  <td className="py-3 px-4 flex space-x-4">
+                    <button onClick={() => { setEditingGuard(guard); setIsModalOpen(true); }} className="text-blue-500 hover:text-blue-700"><Edit size={18} /></button>
+                    <button onClick={() => handleDelete(guard.id)} className="text-red-500 hover:text-red-700"><Trash2 size={18} /></button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+      {isModalOpen && <GuardModal guard={editingGuard} onSave={handleSave} onClose={() => setIsModalOpen(false)} />}
+    </>
   );
 };
 
 
-// --- Guard Modal Component ---
-const GuardModal = ({ guard, onClose, onSave }) => {
-    const [formData, setFormData] = useState({
-        name: guard?.name || '',
-        email: guard?.email || '',
-        phone: guard?.phone || '',
-        pin: '',
-    });
+// --- Modal Components ---
+const GuardModal = ({ guard, onSave, onClose }) => {
+  const [formData, setFormData] = useState({
+    name: guard?.name || '',
+    email: guard?.email || '',
+    phone: guard?.phone || '',
+    pin: '',
+  });
 
-    const handlePhoneChange = (e) => {
-        const numericValue = e.target.value.replace(/[^0-9]/g, '');
-        if (numericValue.length <= 10) {
-            setFormData({ ...formData, phone: numericValue });
-        }
-    };
-    
-    const handleChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
-    };
+  const handlePhoneChange = (e) => {
+    const numericValue = e.target.value.replace(/[^0-9]/g, '');
+    if (numericValue.length <= 10) {
+      setFormData({ ...formData, phone: numericValue });
+    }
+  };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        try {
-            if (guard) { // Editing existing guard
-                await apiClient.put(`/admin/guards/${guard.id}`, formData);
-            } else { // Creating new guard
-                await apiClient.post('/admin/guards', formData);
-            }
-            onSave();
-        } catch (error) {
-            alert(`Failed to save guard: ${error.response?.data?.message || 'Please try again'}`);
-        }
-    };
-
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-30">
-            <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
-                <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-2xl font-bold">{guard ? 'Edit Guard' : 'Add New Guard'}</h3>
-                    <button onClick={onClose}><X size={24} /></button>
-                </div>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <input name="name" value={formData.name} onChange={handleChange} placeholder="Guard's Name" required className="w-full p-2 border rounded" />
-                    <input name="email" type="email" value={formData.email} onChange={handleChange} placeholder="Email (Optional)" className="w-full p-2 border rounded" />
-                    <input name="phone" value={formData.phone} onChange={handlePhoneChange} placeholder="10-Digit Phone (Optional)" className="w-full p-2 border rounded" maxLength="10" />
-                    <input name="pin" type="password" value={formData.pin} onChange={handleChange} placeholder={guard ? 'New PIN (leave blank to keep unchanged)' : 'PIN'} required={!guard} className="w-full p-2 border rounded" />
-                    <div className="flex justify-end space-x-4 pt-4">
-                        <button type="button" onClick={onClose} className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded">Cancel</button>
-                        <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Save Guard</button>
-                    </div>
-                </form>
-            </div>
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const dataToSave = { ...formData };
+    if (!dataToSave.pin) delete dataToSave.pin; // Don't send empty pin
+    onSave(dataToSave);
+  };
+  
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-30">
+      <div className="bg-white p-8 rounded-lg shadow-2xl w-full max-w-md">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-2xl font-bold">{guard ? 'Edit Guard' : 'Add New Guard'}</h3>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-800"><X size={24} /></button>
         </div>
-    );
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <input type="text" placeholder="Name" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} required className="w-full px-4 py-2 border rounded-lg" />
+          <input type="email" placeholder="Email (Optional)" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="w-full px-4 py-2 border rounded-lg" />
+          <input type="tel" placeholder="10-Digit Phone (Optional)" value={formData.phone} onChange={handlePhoneChange} className="w-full px-4 py-2 border rounded-lg" />
+          <input type="password" placeholder={guard ? 'New PIN (Optional)' : 'PIN'} value={formData.pin} onChange={(e) => setFormData({...formData, pin: e.target.value})} required={!guard} className="w-full px-4 py-2 border rounded-lg" />
+          <div className="flex justify-end space-x-4 pt-4">
+            <button type="button" onClick={onClose} className="py-2 px-4 bg-gray-200 rounded-lg">Cancel</button>
+            <button type="submit" className="py-2 px-4 bg-blue-600 text-white rounded-lg">Save Guard</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+const VisitorDetailsModal = ({ visit, onClose }) => {
+  const [imageUrls, setImageUrls] = useState({ visitorPhotoUrl: null, idPhotoUrl: null });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (visit) {
+      apiClient.get(`/admin/visits/${visit.id}/images`)
+        .then(res => setImageUrls(res.data))
+        .finally(() => setLoading(false));
+    }
+  }, [visit]);
+  
+  if (!visit) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-30">
+      <div className="bg-white p-8 rounded-lg shadow-2xl w-full max-w-2xl">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-2xl font-bold">Visit Details: {visit.Visitor?.name}</h3>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-800"><X size={24} /></button>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div>
+            <h4 className="font-semibold text-lg mb-2">Visitor Photo</h4>
+            <div className="w-full h-64 bg-gray-200 rounded-lg flex items-center justify-center">
+              {loading ? <p>Loading...</p> : <img src={imageUrls.visitorPhotoUrl} alt="Visitor" className="w-full h-full object-cover rounded-lg" />}
+            </div>
+          </div>
+          <div>
+            <h4 className="font-semibold text-lg mb-2">ID Card Photo</h4>
+            <div className="w-full h-64 bg-gray-200 rounded-lg flex items-center justify-center">
+              {loading ? <p>Loading...</p> : <img src={imageUrls.idPhotoUrl} alt="ID Card" className="w-full h-full object-cover rounded-lg" />}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 

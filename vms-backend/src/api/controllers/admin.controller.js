@@ -1,8 +1,43 @@
 // src/api/controllers/admin.controller.js
 const { Op } = require('sequelize');
-// This is the corrected import statement
 const { Guard, Visit, Visitor, Employee } = require('../../models');
 const { Parser } = require('json2csv');
+// New AWS SDK imports for generating pre-signed URLs
+const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+
+// --- New Function: Get Image URLs ---
+exports.getVisitImageUrls = async (req, res) => {
+  const { visitId } = req.params;
+  const { tenantId } = req.user;
+
+  try {
+    const visit = await Visit.findOne({ where: { id: visitId, tenantId } });
+    if (!visit) {
+      return res.status(404).json({ message: 'Visit not found.' });
+    }
+
+    const s3Client = new S3Client({ region: process.env.AWS_REGION });
+    const bucketParams = { Bucket: process.env.AWS_S3_BUCKET_NAME };
+
+    const visitorPhotoUrl = await getSignedUrl(
+      s3Client,
+      new GetObjectCommand({ ...bucketParams, Key: visit.visitorPhotoUrl }),
+      { expiresIn: 3600 } // URL is valid for 1 hour
+    );
+
+    const idPhotoUrl = await getSignedUrl(
+      s3Client,
+      new GetObjectCommand({ ...bucketParams, Key: visit.idCardPhotoUrl }),
+      { expiresIn: 3600 }
+    );
+
+    res.status(200).json({ visitorPhotoUrl, idPhotoUrl });
+  } catch (error) {
+    console.error("Error generating signed URLs:", error);
+    res.status(500).json({ message: 'Failed to retrieve image URLs.' });
+  }
+};
 
 // --- Guard Management (CRUD) ---
 
