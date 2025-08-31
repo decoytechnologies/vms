@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import apiClient from '../services/api';
-import { Download, UserPlus, Trash2, Edit, X, Search } from 'lucide-react';
+import apiClient from '../services/api.js';
+import { Download, UserPlus, Trash2, Edit, X, Search, Copy, Check } from 'lucide-react';
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 
@@ -97,15 +97,17 @@ const VisitorLogTab = ({ onOpenDetails }) => {
             <thead className="bg-gray-200">
               <tr>
                 <th className="text-left py-3 px-4 uppercase font-semibold text-sm">Visitor</th>
-                <th className="text-left py-3 px-4 uppercase font-semibold text-sm">Host</th>
+                <th className="text-left py-3 px-4 uppercase font-semibold text-sm">Host Employee</th>
                 <th className="text-left py-3 px-4 uppercase font-semibold text-sm">Check-in</th>
                 <th className="text-left py-3 px-4 uppercase font-semibold text-sm">Check-out</th>
-                <th className="text-left py-3 px-4 uppercase font-semibold text-sm">Duration</th>
+                <th className="text-left py-3 px-4 uppercase font-semibold text-sm">Length of Stay</th>
                 <th className="text-left py-3 px-4 uppercase font-semibold text-sm">Status</th>
               </tr>
             </thead>
             <tbody className="text-gray-700">
-              {loading ? ( <tr><td colSpan="6" className="text-center py-4">Loading...</td></tr> ) : visits.map(visit => {
+              {loading ? (
+                <tr><td colSpan="6" className="text-center py-4">Loading...</td></tr>
+              ) : visits.map(visit => {
                 let lengthOfStay = 'N/A';
                 if (visit.actualCheckOutTimestamp) {
                   const durationMs = new Date(visit.actualCheckOutTimestamp) - new Date(visit.checkInTimestamp);
@@ -115,12 +117,18 @@ const VisitorLogTab = ({ onOpenDetails }) => {
                 }
                 return (
                   <tr key={visit.id} className="border-b hover:bg-gray-50">
-                    <td className="py-3 px-4"><button onClick={() => onOpenDetails(visit)} className="text-blue-600 hover:underline font-semibold">{visit.Visitor?.name || 'N/A'}</button></td>
-                    <td className="py-3 px-4">{visit.Employee?.name || 'N/A'}</td>
-                    <td className="py-3 px-4">{new Date(visit.checkInTimestamp).toLocaleString()}</td>
-                    <td className="py-3 px-4">{visit.actualCheckOutTimestamp ? new Date(visit.actualCheckOutTimestamp).toLocaleString() : 'Still Inside'}</td>
-                    <td className="py-3 px-4">{lengthOfStay}</td>
-                    <td className="py-3 px-4"><span className={`py-1 px-3 rounded-full text-xs font-medium ${ visit.status === 'CHECKED_IN' ? 'bg-green-200 text-green-800' : visit.status === 'CHECKED_OUT' ? 'bg-gray-200 text-gray-800' : 'bg-yellow-200 text-yellow-800'}`}>{visit.status.replace(/_/g, ' ')}</span></td>
+                    <td className="text-left py-3 px-4">
+                      <button onClick={() => onOpenDetails(visit)} className="text-blue-600 hover:underline font-semibold">{visit.Visitor?.name || 'N/A'}</button>
+                    </td>
+                    <td className="text-left py-3 px-4">{visit.Employee?.name || 'N/A'}</td>
+                    <td className="text-left py-3 px-4">{new Date(visit.checkInTimestamp).toLocaleString()}</td>
+                    <td className="text-left py-3 px-4">{visit.actualCheckOutTimestamp ? new Date(visit.actualCheckOutTimestamp).toLocaleString() : 'Still Inside'}</td>
+                    <td className="text-left py-3 px-4">{lengthOfStay}</td>
+                    <td className="text-left py-3 px-4">
+                      <span className={`py-1 px-3 rounded-full text-xs font-medium ${ visit.status === 'CHECKED_IN' ? 'bg-green-200 text-green-800' : visit.status === 'PENDING_APPROVAL' ? 'bg-yellow-200 text-yellow-800' : visit.status === 'CHECKED_OUT' ? 'bg-gray-200 text-gray-800' : 'bg-red-200 text-red-800'}`}>
+                        {visit.status.replace(/_/g, ' ')}
+                      </span>
+                    </td>
                   </tr>
                 );
               })}
@@ -228,11 +236,11 @@ const ReportsTab = () => {
           <div className="mt-6 border-t pt-4">
             <h3 className="text-lg font-semibold">History for: {historyReport.employee.name}</h3>
             <ul className="mt-2 space-y-2">
-                {historyReport.visits.map(visit => (
+                {historyReport.visits.length > 0 ? historyReport.visits.map(visit => (
                     <li key={visit.id} className="p-2 bg-gray-50 rounded text-sm">
                         <strong>{visit.Visitor.name}</strong> on {new Date(visit.checkInTimestamp).toLocaleDateString()}
                     </li>
-                ))}
+                )) : <p>No visits found.</p>}
             </ul>
           </div>
         )}
@@ -380,6 +388,7 @@ const VisitorDetailsModal = ({ visit, onClose }) => {
   const [imageUrls, setImageUrls] = useState({ visitorPhotoUrl: null, idPhotoUrl: null });
   const [loading, setLoading] = useState(true);
   const [activeImageTab, setActiveImageTab] = useState('visitor');
+  const [copiedStates, setCopiedStates] = useState({});
 
   useEffect(() => {
     if (visit) {
@@ -388,6 +397,13 @@ const VisitorDetailsModal = ({ visit, onClose }) => {
         .finally(() => setLoading(false));
     }
   }, [visit]);
+
+  const handleCopyToClipboard = (text, field) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedStates(prev => ({ ...prev, [field]: true }));
+      setTimeout(() => setCopiedStates(prev => ({ ...prev, [field]: false })), 2000);
+    });
+  };
   
   if (!visit) return null;
   
@@ -399,10 +415,17 @@ const VisitorDetailsModal = ({ visit, onClose }) => {
     lengthOfStay = `${hours}h ${minutes}m`;
   }
 
-  const DetailItem = ({ label, value }) => (
+  const DetailItem = ({ label, value, field, isCopyable = false }) => (
     <div>
       <p className="text-sm text-gray-500">{label}</p>
-      <p className="font-semibold text-gray-800">{value}</p>
+      <div className="flex items-center justify-between">
+        <p className="font-semibold text-gray-800 break-all">{value}</p>
+        {isCopyable && (
+          <button onClick={() => handleCopyToClipboard(value, field)} className="ml-2 p-1 rounded-md hover:bg-gray-200 transition">
+            {copiedStates[field] ? <Check size={16} className="text-green-500" /> : <Copy size={16} className="text-gray-500" />}
+          </button>
+        )}
+      </div>
     </div>
   );
 
@@ -419,12 +442,12 @@ const VisitorDetailsModal = ({ visit, onClose }) => {
           <div className="md:col-span-1 space-y-4">
             <h4 className="text-lg font-bold border-b pb-2">Visitor Information</h4>
             <DetailItem label="Name" value={visit.Visitor?.name} />
-            <DetailItem label="Email" value={visit.Visitor?.email} />
+            <DetailItem label="Email" value={visit.Visitor?.email} field="visitorEmail" isCopyable={true} />
             <DetailItem label="Phone" value={visit.Visitor?.phone} />
             
             <h4 className="text-lg font-bold border-b pb-2 pt-4">Host Information</h4>
             <DetailItem label="Host Name" value={visit.Employee?.name} />
-            <DetailItem label="Host Email" value={visit.Employee?.email} />
+            <DetailItem label="Host Email" value={visit.Employee?.email} field="hostEmail" isCopyable={true} />
 
             <h4 className="text-lg font-bold border-b pb-2 pt-4">Visit Timeline</h4>
             <DetailItem label="Check-in Time" value={new Date(visit.checkInTimestamp).toLocaleString()} />
@@ -448,7 +471,8 @@ const VisitorDetailsModal = ({ visit, onClose }) => {
                 <img 
                   src={activeImageTab === 'visitor' ? imageUrls.visitorPhotoUrl : imageUrls.idPhotoUrl} 
                   alt={activeImageTab === 'visitor' ? 'Visitor Photo' : 'ID Card Photo'} 
-                  className="max-w-full max-h-full object-contain" 
+                  className="max-w-full max-h-full object-contain"
+                  onContextMenu={(e) => e.preventDefault()}
                 />
               )}
             </div>
@@ -459,7 +483,6 @@ const VisitorDetailsModal = ({ visit, onClose }) => {
   );
 };
 
-// --- Download Report Modal ---
 const DownloadReportModal = ({ onClose }) => {
     const allColumns = [ 'Visitor Name', 'Visitor Email', 'Visitor Phone', 'Host Name', 'Host Email', 'Check-in Time', 'Check-out Time', 'Length of Stay', 'Status' ];
     const [selectedColumns, setSelectedColumns] = useState(new Set(allColumns));
@@ -553,3 +576,4 @@ const DownloadReportModal = ({ onClose }) => {
 };
 
 export default AdminDashboard;
+

@@ -10,5 +10,9 @@ router.get('/active', [protect, isGuard], visitorController.getActiveVisits);
 router.patch('/:id/checkout', [protect, isGuard], visitorController.checkOut);
 router.get('/search-by-email', [protect, isGuard], visitorController.searchVisitorByEmail);
 router.get('/search-by-phone', [protect, isGuard], visitorController.searchVisitorsByPhone);
+// --- NEW ROUTE ---
+// Secure route for guards to get full details of a specific visit
+router.get('/details/:visitId', [protect, isGuard], visitorController.getVisitDetailsForGuard);
+
 
 module.exports = router;
