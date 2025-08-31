@@ -12,7 +12,9 @@
     "axios": "^1.7.2",
     "lucide-react": "^0.400.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-datepicker": "^8.7.0",
+    "react-dom": "^18.3.1",
+    "react-webcam": "^7.2.0"
   },
   "devDependencies": {
     "@types/react": "^18.3.3",
@@ -24,4 +26,3 @@
     "vite": "^5.3.1"
   }
 }
-
