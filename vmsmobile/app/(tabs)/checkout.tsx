@@ -9,8 +9,8 @@ import { useIsFocused } from '@react-navigation/native';
 import * as Clipboard from 'expo-clipboard';
 
 // --- API Configuration ---
-const API_URL = 'http://192.168.6.180:8080/api';
-// --- const API_URL = 'http://192.168.0.115:8080/api'; // <--- VERIFY YOUR IP HERE!
+// const API_URL = 'http://192.168.6.180:8080/api';
+const API_URL = 'http://192.168.0.115:8080/api'; // <--- VERIFY YOUR IP HERE!
 const TENANT_SUBDOMAIN = 'dev';
 
 // --- Type Definitions ---

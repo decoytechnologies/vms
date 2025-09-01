@@ -21,8 +21,8 @@ import { useAuth } from '../_layout'; // Import useAuth to get the token
 
 // --- API Configuration ---
 // REMEMBER: Replace with your Mac's IP address
-// const API_URL = 'http://192.168.0.115:8080/api';
-const API_URL = 'http://192.168.6.180:8080/api';
+const API_URL = 'http://192.168.0.115:8080/api';
+//const API_URL = 'http://192.168.6.180:8080/api';
 const TENANT_SUBDOMAIN = 'dev';
 
 type Photo = { uri: string; width: number; height: number };

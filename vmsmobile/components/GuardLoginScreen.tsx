@@ -20,8 +20,8 @@ import { useAuth } from '../app/_layout';
 
 // --- API Configuration ---
 // Make sure this IP is correct for your local network
-//const API_URL = 'http://192.168.0.115:8080/api';
-const API_URL = 'http://192.168.6.180:8080/api';
+const API_URL = 'http://192.168.0.115:8080/api';
+//const API_URL = 'http://192.168.6.180:8080/api';
 const TENANT_SUBDOMAIN = 'dev';
 
 const GuardLoginScreen = () => {
