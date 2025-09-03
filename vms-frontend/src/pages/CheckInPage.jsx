@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useContext } from 'react';
 import Webcam from 'react-webcam';
 import apiClient from '../services/api';
 
@@ -8,7 +8,7 @@ const videoConstraints = {
   facingMode: 'user',
 };
 
-const CheckInPage = () => {
+const CheckInPage = ({ isDark = false }) => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -124,57 +124,189 @@ const CheckInPage = () => {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-      <div className="bg-white p-6 rounded-lg shadow-md">
-        <h2 className="text-xl font-semibold mb-4 text-gray-700">Visitor Details</h2>
+      <div className={`p-6 rounded-lg shadow-md transition-colors duration-200 ${
+        isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
+      }`}>
+        <h2 className={`text-xl font-semibold mb-4 ${isDark ? 'text-white' : 'text-gray-700'}`}>Visitor Details</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="relative">
-            <input type="tel" name="phone" value={formData.phone} onChange={handlePhoneChange} placeholder="Visitor's 10-Digit Phone (for lookup)" required className="w-full px-4 py-2 border rounded-lg" />
+            <input 
+              type="tel" 
+              name="phone" 
+              value={formData.phone} 
+              onChange={handlePhoneChange} 
+              placeholder="Visitor's 10-Digit Phone (for lookup)" 
+              required 
+              className={`w-full px-4 py-2 border rounded-lg transition-colors duration-200 ${
+                isDark 
+                  ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500' 
+                  : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500'
+              } focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50`}
+            />
             {visitorSuggestions.length > 0 && (
-              <ul className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg">
+              <ul className={`absolute z-10 w-full mt-1 border rounded-lg shadow-lg transition-colors duration-200 ${
+                isDark ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'
+              }`}>
                 {visitorSuggestions.map(vis => (
-                  <li key={vis.id} onMouseDown={() => { setFormData({ ...formData, phone: vis.phone, name: vis.name, email: vis.email }); setVisitorSuggestions([]); }} className="px-4 py-2 cursor-pointer hover:bg-gray-100">{vis.name} ({vis.phone})</li>
+                  <li 
+                    key={vis.id} 
+                    onMouseDown={() => { setFormData({ ...formData, phone: vis.phone, name: vis.name, email: vis.email }); setVisitorSuggestions([]); }} 
+                    className={`px-4 py-2 cursor-pointer transition-colors duration-200 ${
+                      isDark 
+                        ? 'hover:bg-gray-600 text-white' 
+                        : 'hover:bg-gray-100 text-gray-900'
+                    }`}
+                  >
+                    {vis.name} ({vis.phone})
+                  </li>
                 ))}
               </ul>
             )}
           </div>
-          <input type="text" name="name" value={formData.name} onChange={handleInputChange} placeholder="Visitor's Full Name" required className="w-full px-4 py-2 border rounded-lg" />
-          <input type="email" name="email" value={formData.email} onChange={handleInputChange} placeholder="Visitor's Email Address" required className="w-full px-4 py-2 border rounded-lg" />
+          <input 
+            type="text" 
+            name="name" 
+            value={formData.name} 
+            onChange={handleInputChange} 
+            placeholder="Visitor's Full Name" 
+            required 
+            className={`w-full px-4 py-2 border rounded-lg transition-colors duration-200 ${
+              isDark 
+                ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500' 
+                : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500'
+            } focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50`}
+          />
+          <input 
+            type="email" 
+            name="email" 
+            value={formData.email} 
+            onChange={handleInputChange} 
+            placeholder="Visitor's Email Address" 
+            required 
+            className={`w-full px-4 py-2 border rounded-lg transition-colors duration-200 ${
+              isDark 
+                ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500' 
+                : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500'
+            } focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50`}
+          />
           <div className="relative">
-            <input type="email" name="employeeEmail" value={formData.employeeEmail} onChange={handleInputChange} placeholder="Host Employee's Email or Name" required className="w-full px-4 py-2 border rounded-lg" />
+            <input 
+              type="email" 
+              name="employeeEmail" 
+              value={formData.employeeEmail} 
+              onChange={handleInputChange} 
+              placeholder="Host Employee's Email or Name" 
+              required 
+              className={`w-full px-4 py-2 border rounded-lg transition-colors duration-200 ${
+                isDark 
+                  ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500' 
+                  : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500'
+              } focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50`}
+            />
             {employeeSuggestions.length > 0 && (
-              <ul className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg">
+              <ul className={`absolute z-10 w-full mt-1 border rounded-lg shadow-lg transition-colors duration-200 ${
+                isDark ? 'bg-gray-700 border-gray-600' : 'bg-white border-gray-200'
+              }`}>
                 {employeeSuggestions.map(emp => (
-                  <li key={emp.id} onMouseDown={() => { setFormData({ ...formData, employeeEmail: emp.email }); setEmployeeSuggestions([]); }} className="px-4 py-2 cursor-pointer hover:bg-gray-100">{emp.name} ({emp.email})</li>
+                  <li 
+                    key={emp.id} 
+                    onMouseDown={() => { setFormData({ ...formData, employeeEmail: emp.email }); setEmployeeSuggestions([]); }} 
+                    className={`px-4 py-2 cursor-pointer transition-colors duration-200 ${
+                      isDark 
+                        ? 'hover:bg-gray-600 text-white' 
+                        : 'hover:bg-gray-100 text-gray-900'
+                    }`}
+                  >
+                    {emp.name} ({emp.email})
+                  </li>
                 ))}
               </ul>
             )}
           </div>
           
-          <button type="submit" disabled={loading} className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 disabled:bg-blue-400">
+          <button 
+            type="submit" 
+            disabled={loading} 
+            className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 disabled:bg-blue-400 transition-colors duration-200"
+          >
             {loading ? 'Submitting...' : 'Submit Check-In'}
           </button>
           
-          {message.text && ( <div className={`p-3 rounded-lg text-center font-medium ${ message.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }`}> {message.text} </div> )}
+          {message.text && ( 
+            <div className={`p-3 rounded-lg text-center font-medium transition-colors duration-200 ${ 
+              message.type === 'success' 
+                ? isDark 
+                  ? 'bg-green-900/20 text-green-400 border border-green-700' 
+                  : 'bg-green-100 text-green-800' 
+                : isDark 
+                  ? 'bg-red-900/20 text-red-400 border border-red-700' 
+                  : 'bg-red-100 text-red-800' 
+            }`}> 
+              {message.text} 
+            </div> 
+          )}
         </form>
       </div>
 
-      <div className="bg-white p-6 rounded-lg shadow-md">
-        <h2 className="text-xl font-semibold mb-4 text-gray-700">Capture Photos</h2>
+      <div className={`p-6 rounded-lg shadow-md transition-colors duration-200 ${
+        isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
+      }`}>
+        <h2 className={`text-xl font-semibold mb-4 ${isDark ? 'text-white' : 'text-gray-700'}`}>Capture Photos</h2>
         <div className="bg-black rounded-lg overflow-hidden mb-4">
           <Webcam audio={false} ref={webcamRef} screenshotFormat="image/jpeg" width="100%" videoConstraints={videoConstraints} />
         </div>
         <div className="grid grid-cols-2 gap-4 mb-4">
-          <button type="button" onClick={captureVisitorPhoto} className="w-full bg-gray-700 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-800">Capture Visitor Photo</button>
-          <button type="button" onClick={captureIdPhoto} className="w-full bg-gray-700 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-800">Capture ID Card Photo</button>
+          <button 
+            type="button" 
+            onClick={captureVisitorPhoto} 
+            className={`w-full font-bold py-2 px-4 rounded-lg transition-colors duration-200 ${
+              isDark 
+                ? 'bg-gray-600 hover:bg-gray-700 text-white' 
+                : 'bg-gray-700 hover:bg-gray-800 text-white'
+            }`}
+          >
+            Capture Visitor Photo
+          </button>
+          <button 
+            type="button" 
+            onClick={captureIdPhoto} 
+            className={`w-full font-bold py-2 px-4 rounded-lg transition-colors duration-200 ${
+              isDark 
+                ? 'bg-gray-600 hover:bg-gray-700 text-white' 
+                : 'bg-gray-700 hover:bg-gray-800 text-white'
+            }`}
+          >
+            Capture ID Card Photo
+          </button>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <h3 className="font-semibold text-gray-600 mb-2">Visitor Preview:</h3>
-            {visitorPhoto ? <img src={visitorPhoto} alt="Visitor" className="rounded-lg border" /> : <div className="border rounded-lg h-32 bg-gray-200 flex items-center justify-center text-gray-500">No Image</div>}
+            <h3 className={`font-semibold mb-2 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>Visitor Preview:</h3>
+            {visitorPhoto ? (
+              <img src={visitorPhoto} alt="Visitor" className={`rounded-lg border ${isDark ? 'border-gray-600' : 'border-gray-300'}`} />
+            ) : (
+              <div className={`border rounded-lg h-32 flex items-center justify-center transition-colors duration-200 ${
+                isDark 
+                  ? 'border-gray-600 bg-gray-700 text-gray-400' 
+                  : 'border-gray-300 bg-gray-200 text-gray-500'
+              }`}>
+                No Image
+              </div>
+            )}
           </div>
           <div>
-            <h3 className="font-semibold text-gray-600 mb-2">ID Preview:</h3>
-            {idPhoto ? <img src={idPhoto} alt="ID Card" className="rounded-lg border" /> : <div className="border rounded-lg h-32 bg-gray-200 flex items-center justify-center text-gray-500">No Image</div>}
+            <h3 className={`font-semibold mb-2 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>ID Preview:</h3>
+            {idPhoto ? (
+              <img src={idPhoto} alt="ID Card" className={`rounded-lg border ${isDark ? 'border-gray-600' : 'border-gray-300'}`} />
+            ) : (
+              <div className={`border rounded-lg h-32 flex items-center justify-center transition-colors duration-200 ${
+                isDark 
+                  ? 'border-gray-600 bg-gray-700 text-gray-400' 
+                  : 'border-gray-300 bg-gray-200 text-gray-500'
+              }`}>
+                No Image
+              </div>
+            )}
           </div>
         </div>
       </div>

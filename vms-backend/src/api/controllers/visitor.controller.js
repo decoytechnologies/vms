@@ -34,10 +34,16 @@ exports.checkIn = async (req, res) => {
 };
 
 exports.getActiveVisits = async (req, res) => {
-  // This function remains the same
   const { tenantId } = req.user;
   try {
-    const activeVisits = await Visit.findAll({ where: { tenantId, status: 'CHECKED_IN' }, include: [{ model: Visitor, attributes: ['name'] }], order: [['checkInTimestamp', 'ASC']] });
+    const activeVisits = await Visit.findAll({ 
+      where: { tenantId, status: 'CHECKED_IN' }, 
+      include: [
+        { model: Visitor, attributes: ['name'] },
+        { model: Employee, attributes: ['name', 'email'] }
+      ], 
+      order: [['checkInTimestamp', 'ASC']] 
+    });
     res.status(200).json(activeVisits);
   } catch (error) {
     res.status(500).json({ message: 'Failed to fetch active visitors.' });
