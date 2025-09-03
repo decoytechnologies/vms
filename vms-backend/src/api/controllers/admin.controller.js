@@ -1,5 +1,5 @@
 const { Op } = require('sequelize');
-const { Guard, Visit, Visitor, Employee } = require('../../models');
+const { Admin, Guard, Visit, Visitor, Employee } = require('../../models');
 const { Parser } = require('json2csv');
 const PDFDocument = require('pdfkit');
 const path = require('path');
@@ -255,4 +255,126 @@ exports.downloadVisitorLog = async (req, res) => {
         console.error("Error generating report:", error);
         res.status(500).json({ message: 'Failed to generate report.' });
     }
+};
+
+// --- Admin Management (CRUD) ---
+
+exports.getAdmins = async (req, res) => {
+  const { tenantId } = req.user;
+  try {
+    const admins = await Admin.findAll({ 
+      where: { tenantId }, 
+      attributes: { exclude: ['pinHash'] },
+      order: [['createdAt', 'DESC']]
+    });
+    res.status(200).json(admins);
+  } catch (error) {
+    console.error('Error fetching admins:', error);
+    res.status(500).json({ message: 'Failed to fetch admins.' });
+  }
+};
+
+exports.createAdmin = async (req, res) => {
+  const { name, email, phone, pin } = req.body;
+  const { tenantId } = req.user;
+  
+  if (!name || !pin) {
+    return res.status(400).json({ message: 'Admin name and PIN are required.' });
+  }
+
+  try {
+    // Check if we already have 5 admins for this tenant
+    const adminCount = await Admin.count({ where: { tenantId } });
+    if (adminCount >= 5) {
+      return res.status(400).json({ message: 'Maximum of 5 admins allowed per tenant.' });
+    }
+
+    // Check if email is already taken
+    if (email) {
+      const existingAdmin = await Admin.findOne({ where: { email, tenantId } });
+      if (existingAdmin) {
+        return res.status(400).json({ message: 'An admin with this email already exists.' });
+      }
+    }
+
+    const newAdmin = await Admin.create({ 
+      name, 
+      email, 
+      phone, 
+      pinHash: pin, 
+      tenantId, 
+      isActive: true 
+    });
+    
+    res.status(201).json({ 
+      id: newAdmin.id, 
+      name: newAdmin.name, 
+      email: newAdmin.email, 
+      phone: newAdmin.phone 
+    });
+  } catch (error) {
+    console.error('Error creating admin:', error);
+    res.status(500).json({ message: 'Failed to create admin.' });
+  }
+};
+
+exports.updateAdmin = async (req, res) => {
+  const { id } = req.params;
+  const { name, email, phone, pin } = req.body;
+  const { tenantId } = req.user;
+  
+  try {
+    const admin = await Admin.findOne({ where: { id, tenantId } });
+    if (!admin) {
+      return res.status(404).json({ message: 'Admin not found.' });
+    }
+    
+    // Check if email is already taken by another admin
+    if (email && email !== admin.email) {
+      const existingAdmin = await Admin.findOne({ where: { email, tenantId } });
+      if (existingAdmin) {
+        return res.status(400).json({ message: 'An admin with this email already exists.' });
+      }
+    }
+    
+    admin.name = name || admin.name;
+    admin.email = email;
+    admin.phone = phone;
+    if (pin) admin.pinHash = pin;
+
+    await admin.save();
+    res.status(200).json({ 
+      id: admin.id, 
+      name: admin.name, 
+      email: admin.email, 
+      phone: admin.phone 
+    });
+  } catch (error) {
+    console.error('Error updating admin:', error);
+    res.status(500).json({ message: 'Failed to update admin.' });
+  }
+};
+
+exports.deleteAdmin = async (req, res) => {
+  const { id } = req.params;
+  const { tenantId } = req.user;
+  
+  try {
+    const admin = await Admin.findOne({ where: { id, tenantId } });
+    if (!admin) {
+      return res.status(404).json({ message: 'Admin not found.' });
+    }
+    
+    // Prevent deleting the last admin
+    const adminCount = await Admin.count({ where: { tenantId } });
+    if (adminCount <= 1) {
+      return res.status(400).json({ message: 'Cannot delete the last admin. At least one admin must remain.' });
+    }
+    
+    await admin.destroy();
+    res.status(204).send();
+  } catch (error) {
+    console.error('Error deleting admin:', error);
+    res.status(500).json({ message: 'Failed to delete admin.' });
+  }
 };

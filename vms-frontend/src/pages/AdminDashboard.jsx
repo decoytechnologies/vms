@@ -1,8 +1,51 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, createContext, useContext } from 'react';
 import apiClient from '../services/api.js';
-import { Download, UserPlus, Trash2, Edit, X, Search, Copy, Check } from 'lucide-react';
+import { 
+  Download, 
+  UserPlus, 
+  Trash2, 
+  Edit, 
+  X, 
+  Search, 
+  Copy, 
+  Check, 
+  Users, 
+  Shield, 
+  FileText, 
+  Settings,
+  Sun,
+  Moon,
+  LogOut,
+  Plus
+} from 'lucide-react';
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+
+// --- Theme Context ---
+const ThemeContext = createContext();
+
+const useTheme = () => {
+  const context = useContext(ThemeContext);
+  if (!context) {
+    throw new Error('useTheme must be used within a ThemeProvider');
+  }
+  return context;
+};
+
+// --- Theme Provider ---
+const ThemeProvider = ({ children }) => {
+  const [isDark, setIsDark] = useState(true); // Default to dark theme
+
+  const toggleTheme = () => {
+    setIsDark(!isDark);
+  };
+
+  return (
+    <ThemeContext.Provider value={{ isDark, toggleTheme }}>
+      {children}
+    </ThemeContext.Provider>
+  );
+};
 
 // --- Main Dashboard Component ---
 const AdminDashboard = ({ onLogout }) => {
@@ -21,6 +64,8 @@ const AdminDashboard = ({ onLogout }) => {
         return <ReportsTab />;
       case 'guards':
         return <GuardManagementTab />;
+      case 'admins':
+        return <AdminManagementTab />;
       case 'log':
       default:
         return <VisitorLogTab onOpenDetails={openVisitorDetails} />;
@@ -28,52 +73,184 @@ const AdminDashboard = ({ onLogout }) => {
   };
 
   return (
-    <div className="bg-slate-100 min-h-screen font-sans">
-      <header className="bg-white shadow-sm sticky top-0 z-20">
-        <nav className="container mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center space-x-4">
-            <img src="/logo.png" alt="Logo" className="h-10 w-auto" />
-            <h1 className="text-2xl font-bold text-gray-800">Admin Portal</h1>
+    <ThemeProvider>
+      <AdminDashboardContent 
+        activeTab={activeTab} 
+        setActiveTab={setActiveTab}
+        onLogout={onLogout}
+        renderTabContent={renderTabContent}
+        openVisitorDetails={openVisitorDetails}
+        selectedVisit={selectedVisit}
+        isDetailsModalOpen={isDetailsModalOpen}
+        setIsDetailsModalOpen={setIsDetailsModalOpen}
+      />
+    </ThemeProvider>
+  );
+};
+
+// --- Admin Dashboard Content ---
+const AdminDashboardContent = ({ 
+  activeTab, 
+  setActiveTab, 
+  onLogout, 
+  renderTabContent,
+  selectedVisit,
+  isDetailsModalOpen,
+  setIsDetailsModalOpen
+}) => {
+  const { isDark, toggleTheme } = useTheme();
+
+  const sidebarItems = [
+    { id: 'log', title: 'Visitor Log', icon: FileText },
+    { id: 'reports', title: 'Reports', icon: Download },
+    { id: 'guards', title: 'Guard Management', icon: Shield },
+    { id: 'admins', title: 'Admin Management', icon: Users },
+  ];
+
+  return (
+    <div className={`min-h-screen font-sans transition-colors duration-200 ${isDark ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
+      {/* Sidebar - Always Visible */}
+      <div className={`fixed inset-y-0 left-0 z-50 w-64 ${isDark ? 'bg-gray-800' : 'bg-white'} shadow-lg`}>
+        <div className="flex flex-col h-full">
+          {/* Sidebar Header - Simplified */}
+          <div className={`flex items-center p-6 border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+            <div className="flex items-center space-x-3">
+              <img src="/logo.png" alt="Logo" className="h-16 w-auto" />
+              <h1 className="text-2xl font-bold">VMS</h1>
+            </div>
           </div>
-          <button onClick={onLogout} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition">Logout</button>
-        </nav>
-        <div className="container mx-auto px-6 border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8">
-            <TabButton title="Visitor Log" isActive={activeTab === 'log'} onClick={() => setActiveTab('log')} />
-            <TabButton title="Reports" isActive={activeTab === 'reports'} onClick={() => setActiveTab('reports')} />
-            <TabButton title="Guard Management" isActive={activeTab === 'guards'} onClick={() => setActiveTab('guards')} />
+
+          {/* Sidebar Navigation */}
+          <nav className="flex-1 p-4">
+            <ul className="space-y-2">
+              {sidebarItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <li key={item.id}>
+                    <button
+                      onClick={() => setActiveTab(item.id)}
+                      className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors duration-200 ${
+                        activeTab === item.id
+                          ? isDark 
+                            ? 'bg-blue-600 text-white' 
+                            : 'bg-blue-100 text-blue-700'
+                          : isDark
+                            ? 'text-gray-300 hover:bg-gray-700'
+                            : 'text-gray-600 hover:bg-gray-100'
+                      }`}
+                    >
+                      <Icon size={20} />
+                      <span className="font-medium">{item.title}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
           </nav>
         </div>
-      </header>
-      
-      <main className="container mx-auto px-6 py-8">
-        {renderTabContent()}
-      </main>
+      </div>
 
-      {isDetailsModalOpen && <VisitorDetailsModal visit={selectedVisit} onClose={() => setIsDetailsModalOpen(false)} />}
+      {/* Main Content - Always with left margin for sidebar */}
+      <div className="ml-64">
+        {/* Top Header - Simplified */}
+        <header className={`sticky top-0 z-40 ${isDark ? 'bg-gray-800 border-b border-gray-700' : 'bg-white border-b border-gray-200'} shadow-sm`}>
+          <div className="flex items-center justify-between px-6 py-4">
+            {/* User Info and Actions */}
+            <div className="flex items-center space-x-4 ml-auto">
+              <button
+                onClick={toggleTheme}
+                className={`p-2 rounded-lg transition-colors duration-200 ${
+                  isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
+                }`}
+              >
+                {isDark ? <Sun size={20} /> : <Moon size={20} />}
+              </button>
+              
+              <div className="flex items-center space-x-3">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                  isDark ? 'bg-blue-600' : 'bg-blue-500'
+                } text-white font-bold`}>
+                  A
+                </div>
+                <div className="hidden md:block">
+                  <div className="text-sm font-medium">Admin User</div>
+                  <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Administrator</div>
+                </div>
+                <button
+                  onClick={onLogout}
+                  className={`p-2 rounded-lg transition-colors duration-200 ${
+                    isDark 
+                      ? 'text-red-400 hover:bg-red-900/20' 
+                      : 'text-red-500 hover:bg-red-50'
+                  }`}
+                  title="Logout"
+                >
+                  <LogOut size={20} />
+                </button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Main Content Area */}
+        <main className="p-6">
+          {renderTabContent()}
+        </main>
+      </div>
+
+      {/* Visitor Details Modal */}
+      {isDetailsModalOpen && (
+        <VisitorDetailsModal 
+          visit={selectedVisit} 
+          onClose={() => setIsDetailsModalOpen(false)} 
+        />
+      )}
     </div>
   );
 };
 
 // --- Helper Components ---
-const TabButton = ({ title, isActive, onClick }) => (
-  <button onClick={onClick} className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${isActive ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}>
-    {title}
-  </button>
-);
+const TabButton = ({ title, isActive, onClick }) => {
+  const { isDark } = useTheme();
+  return (
+    <button 
+      onClick={onClick} 
+      className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
+        isActive 
+          ? 'border-blue-500 text-blue-600' 
+          : isDark 
+            ? 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-600'
+            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+      }`}
+    >
+      {title}
+    </button>
+  );
+};
 
-const Card = ({ children, className }) => (
-  <div className={`bg-white p-6 rounded-lg shadow-lg ${className}`}>
-    {children}
-  </div>
-);
+const Card = ({ children, className }) => {
+  const { isDark } = useTheme();
+  return (
+    <div className={`p-6 rounded-lg shadow-lg transition-colors duration-200 ${
+      isDark ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'
+    } ${className}`}>
+      {children}
+    </div>
+  );
+};
 
-const CardTitle = ({ children }) => (
-  <h2 className="text-xl font-semibold text-gray-700 mb-4">{children}</h2>
-);
+const CardTitle = ({ children }) => {
+  const { isDark } = useTheme();
+  return (
+    <h2 className={`text-xl font-semibold mb-4 transition-colors duration-200 ${
+      isDark ? 'text-white' : 'text-gray-700'
+    }`}>{children}</h2>
+  );
+};
 
 // --- Visitor Log Tab Component ---
 const VisitorLogTab = ({ onOpenDetails }) => {
+  const { isDark } = useTheme();
   const [visits, setVisits] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isDownloadModalOpen, setDownloadModalOpen] = useState(false);
@@ -93,18 +270,18 @@ const VisitorLogTab = ({ onOpenDetails }) => {
           </button>
         </div>
         <div className="overflow-x-auto">
-          <table className="min-w-full bg-white">
-            <thead className="bg-gray-200">
+          <table className={`min-w-full ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
+            <thead className={isDark ? 'bg-gray-700' : 'bg-gray-200'}>
               <tr>
-                <th className="text-left py-3 px-4 uppercase font-semibold text-sm">Visitor</th>
-                <th className="text-left py-3 px-4 uppercase font-semibold text-sm">Host Employee</th>
-                <th className="text-left py-3 px-4 uppercase font-semibold text-sm">Check-in</th>
-                <th className="text-left py-3 px-4 uppercase font-semibold text-sm">Check-out</th>
-                <th className="text-left py-3 px-4 uppercase font-semibold text-sm">Length of Stay</th>
-                <th className="text-left py-3 px-4 uppercase font-semibold text-sm">Status</th>
+                <th className={`text-left py-3 px-4 uppercase font-semibold text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Visitor</th>
+                <th className={`text-left py-3 px-4 uppercase font-semibold text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Host Employee</th>
+                <th className={`text-left py-3 px-4 uppercase font-semibold text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Check-in</th>
+                <th className={`text-left py-3 px-4 uppercase font-semibold text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Check-out</th>
+                <th className={`text-left py-3 px-4 uppercase font-semibold text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Length of Stay</th>
+                <th className={`text-left py-3 px-4 uppercase font-semibold text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Status</th>
               </tr>
             </thead>
-            <tbody className="text-gray-700">
+            <tbody className={isDark ? 'text-gray-300' : 'text-gray-700'}>
               {loading ? (
                 <tr><td colSpan="6" className="text-center py-4">Loading...</td></tr>
               ) : visits.map(visit => {
@@ -116,7 +293,7 @@ const VisitorLogTab = ({ onOpenDetails }) => {
                   lengthOfStay = `${hours}h ${minutes}m`;
                 }
                 return (
-                  <tr key={visit.id} className="border-b hover:bg-gray-50">
+                  <tr key={visit.id} className={`border-b ${isDark ? 'border-gray-700 hover:bg-gray-700' : 'border-gray-200 hover:bg-gray-50'}`}>
                     <td className="text-left py-3 px-4">
                       <button onClick={() => onOpenDetails(visit)} className="text-blue-600 hover:underline font-semibold">{visit.Visitor?.name || 'N/A'}</button>
                     </td>
@@ -143,6 +320,7 @@ const VisitorLogTab = ({ onOpenDetails }) => {
 
 // --- Reports Tab Component ---
 const ReportsTab = () => {
+  const { isDark } = useTheme();
   const [endOfDayReport, setEndOfDayReport] = useState(null);
   const [historyReport, setHistoryReport] = useState(null);
   const [searchEmail, setSearchEmail] = useState('');
@@ -189,10 +367,13 @@ const ReportsTab = () => {
       <h3 className={`text-lg font-semibold mb-2 text-${color}-600`}>{title} ({data.length})</h3>
       <ul className="space-y-2">
         {data.length > 0 ? data.map(visit => (
-          <li key={visit.id} className="p-2 bg-gray-50 rounded-md text-sm">
-            <strong>{visit.Visitor.name}</strong> (Host: {visit.Employee.name})
+          <li key={visit.id} className={`p-2 rounded-md text-sm transition-colors duration-200 ${
+            isDark ? 'bg-gray-700' : 'bg-gray-50'
+          }`}>
+            <strong className={isDark ? 'text-white' : 'text-gray-900'}>{visit.Visitor.name}</strong>
+            <span className={isDark ? 'text-gray-300' : 'text-gray-700'}> (Host: {visit.Employee.name})</span>
           </li>
-        )) : <p className="text-sm text-gray-500">No visitors in this category.</p>}
+        )) : <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>No visitors in this category.</p>}
       </ul>
     </div>
   );
@@ -217,30 +398,62 @@ const ReportsTab = () => {
         <CardTitle>Visitor History by Employee</CardTitle>
         <div className="relative">
           <div className="flex items-center space-x-4">
-            <input type="email" value={searchEmail} onChange={(e) => setSearchEmail(e.target.value)} placeholder="Enter host employee's name or email" className="w-full px-4 py-2 border border-gray-300 rounded-lg"/>
-            <button onClick={() => handleHistorySearch(searchEmail)} disabled={historyLoading} className="bg-blue-600 hover:bg-blue-700 text-white font-bold p-2.5 rounded-lg disabled:bg-blue-400">
+            <input 
+              type="email" 
+              value={searchEmail} 
+              onChange={(e) => setSearchEmail(e.target.value)} 
+              placeholder="Enter host employee's name or email" 
+              className={`w-full px-4 py-2 border rounded-lg transition-colors duration-200 ${
+                isDark 
+                  ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500' 
+                  : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500'
+              } focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50`}
+            />
+            <button 
+              onClick={() => handleHistorySearch(searchEmail)} 
+              disabled={historyLoading} 
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold p-2.5 rounded-lg disabled:bg-blue-400 transition-colors duration-200"
+            >
                 {historyLoading ? '...' : <Search size={20} />}
             </button>
           </div>
           {suggestions.length > 0 && (
-            <ul className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg">
+            <ul className={`absolute z-10 w-full mt-1 border rounded-lg shadow-lg transition-colors duration-200 ${
+              isDark ? 'bg-gray-800 border-gray-600' : 'bg-white border-gray-200'
+            }`}>
               {suggestions.map(emp => (
-                <li key={emp.id} onMouseDown={() => handleHistorySearch(emp.email)} className="px-4 py-2 cursor-pointer hover:bg-gray-100">
-                    {emp.name} <span className="text-gray-500">({emp.email})</span>
+                <li 
+                  key={emp.id} 
+                  onMouseDown={() => handleHistorySearch(emp.email)} 
+                  className={`px-4 py-2 cursor-pointer transition-colors duration-200 ${
+                    isDark 
+                      ? 'hover:bg-gray-700 text-white' 
+                      : 'hover:bg-gray-100 text-gray-900'
+                  }`}
+                >
+                    <span className={isDark ? 'text-white' : 'text-gray-900'}>{emp.name}</span> 
+                    <span className={isDark ? 'text-gray-400' : 'text-gray-500'}> ({emp.email})</span>
                 </li>
               ))}
             </ul>
           )}
         </div>
         {historyReport && (
-          <div className="mt-6 border-t pt-4">
-            <h3 className="text-lg font-semibold">History for: {historyReport.employee.name}</h3>
+          <div className={`mt-6 border-t pt-4 transition-colors duration-200 ${
+            isDark ? 'border-gray-600' : 'border-gray-200'
+          }`}>
+            <h3 className={`text-lg font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+              History for: {historyReport.employee.name}
+            </h3>
             <ul className="mt-2 space-y-2">
                 {historyReport.visits.length > 0 ? historyReport.visits.map(visit => (
-                    <li key={visit.id} className="p-2 bg-gray-50 rounded text-sm">
-                        <strong>{visit.Visitor.name}</strong> on {new Date(visit.checkInTimestamp).toLocaleDateString()}
+                    <li key={visit.id} className={`p-2 rounded text-sm transition-colors duration-200 ${
+                      isDark ? 'bg-gray-700' : 'bg-gray-50'
+                    }`}>
+                        <strong className={isDark ? 'text-white' : 'text-gray-900'}>{visit.Visitor.name}</strong>
+                        <span className={isDark ? 'text-gray-300' : 'text-gray-700'}> on {new Date(visit.checkInTimestamp).toLocaleDateString()}</span>
                     </li>
-                )) : <p>No visits found.</p>}
+                )) : <p className={isDark ? 'text-gray-400' : 'text-gray-600'}>No visits found.</p>}
             </ul>
           </div>
         )}
@@ -252,6 +465,7 @@ const ReportsTab = () => {
 
 // --- Guard Management Tab Component ---
 const GuardManagementTab = () => {
+  const { isDark } = useTheme();
   const [guards, setGuards] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -306,26 +520,32 @@ const GuardManagementTab = () => {
           </button>
         </div>
         <div className="overflow-x-auto">
-          <table className="min-w-full bg-white">
-            <thead className="bg-gray-200">
+          <table className={`min-w-full transition-colors duration-200 ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
+            <thead className={isDark ? 'bg-gray-700' : 'bg-gray-200'}>
               <tr>
-                <th className="text-left py-3 px-4 uppercase font-semibold text-sm">Name</th>
-                <th className="text-left py-3 px-4 uppercase font-semibold text-sm">Email</th>
-                <th className="text-left py-3 px-4 uppercase font-semibold text-sm">Phone</th>
-                <th className="text-left py-3 px-4 uppercase font-semibold text-sm">Actions</th>
+                <th className={`text-left py-3 px-4 uppercase font-semibold text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Name</th>
+                <th className={`text-left py-3 px-4 uppercase font-semibold text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Email</th>
+                <th className={`text-left py-3 px-4 uppercase font-semibold text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Phone</th>
+                <th className={`text-left py-3 px-4 uppercase font-semibold text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Actions</th>
               </tr>
             </thead>
-            <tbody className="text-gray-700">
+            <tbody className={isDark ? 'text-gray-300' : 'text-gray-700'}>
               {loading ? (
                 <tr><td colSpan="4" className="text-center py-4">Loading...</td></tr>
               ) : guards.map(guard => (
-                <tr key={guard.id} className="border-b hover:bg-gray-50">
+                <tr key={guard.id} className={`border-b transition-colors duration-200 ${
+                  isDark ? 'border-gray-700 hover:bg-gray-700' : 'border-gray-200 hover:bg-gray-50'
+                }`}>
                   <td className="py-3 px-4">{guard.name}</td>
                   <td className="py-3 px-4">{guard.email || 'N/A'}</td>
                   <td className="py-3 px-4">{guard.phone || 'N/A'}</td>
                   <td className="py-3 px-4 flex space-x-4">
-                    <button onClick={() => { setEditingGuard(guard); setIsModalOpen(true); }} className="text-blue-500 hover:text-blue-700"><Edit size={18} /></button>
-                    <button onClick={() => handleDelete(guard.id)} className="text-red-500 hover:text-red-700"><Trash2 size={18} /></button>
+                    <button onClick={() => { setEditingGuard(guard); setIsModalOpen(true); }} className="text-blue-500 hover:text-blue-700 transition-colors duration-200">
+                      <Edit size={18} />
+                    </button>
+                    <button onClick={() => handleDelete(guard.id)} className="text-red-500 hover:text-red-700 transition-colors duration-200">
+                      <Trash2 size={18} />
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -338,9 +558,105 @@ const GuardManagementTab = () => {
   );
 };
 
+// --- Admin Management Tab Component ---
+const AdminManagementTab = () => {
+  const { isDark } = useTheme();
+  const [admins, setAdmins] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingAdmin, setEditingAdmin] = useState(null);
+
+  const fetchAdmins = async () => {
+    setLoading(true);
+    try {
+      const res = await apiClient.get('/admin/admins');
+      setAdmins(res.data);
+    } catch (error) {
+      console.error("Failed to fetch admins:", error);
+      alert("Could not load the list of admins. Please try refreshing the page.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAdmins();
+  }, []);
+
+  const handleSave = async (adminData) => {
+    try {
+        if (editingAdmin) {
+          await apiClient.put(`/admin/admins/${editingAdmin.id}`, adminData);
+        } else {
+          await apiClient.post('/admin/admins', adminData);
+        }
+        fetchAdmins();
+        setIsModalOpen(false);
+        setEditingAdmin(null);
+    } catch (error) {
+        alert('Failed to save admin. Please check the details and try again.');
+    }
+  };
+  
+  const handleDelete = async (adminId) => {
+    if (window.confirm("Are you sure you want to delete this admin? This action cannot be undone.")) {
+      await apiClient.delete(`/admin/admins/${adminId}`);
+      fetchAdmins();
+    }
+  };
+
+  return (
+    <>
+      <Card>
+        <div className="flex justify-between items-center mb-4">
+          <CardTitle>Manage Admin Accounts</CardTitle>
+          <button onClick={() => { setEditingAdmin(null); setIsModalOpen(true); }} className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">
+            <UserPlus size={18} /><span>Add New Admin</span>
+          </button>
+        </div>
+        <div className="overflow-x-auto">
+          <table className={`min-w-full transition-colors duration-200 ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
+            <thead className={isDark ? 'bg-gray-700' : 'bg-gray-200'}>
+              <tr>
+                <th className={`text-left py-3 px-4 uppercase font-semibold text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Name</th>
+                <th className={`text-left py-3 px-4 uppercase font-semibold text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Email</th>
+                <th className={`text-left py-3 px-4 uppercase font-semibold text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Phone</th>
+                <th className={`text-left py-3 px-4 uppercase font-semibold text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Actions</th>
+              </tr>
+            </thead>
+            <tbody className={isDark ? 'text-gray-300' : 'text-gray-700'}>
+              {loading ? (
+                <tr><td colSpan="4" className="text-center py-4">Loading...</td></tr>
+              ) : admins.map(admin => (
+                <tr key={admin.id} className={`border-b transition-colors duration-200 ${
+                  isDark ? 'border-gray-700 hover:bg-gray-700' : 'border-gray-200 hover:bg-gray-50'
+                }`}>
+                  <td className="py-3 px-4">{admin.name}</td>
+                  <td className="py-3 px-4">{admin.email || 'N/A'}</td>
+                  <td className="py-3 px-4">{admin.phone || 'N/A'}</td>
+                  <td className="py-3 px-4 flex space-x-4">
+                    <button onClick={() => { setEditingAdmin(admin); setIsModalOpen(true); }} className="text-blue-500 hover:text-blue-700 transition-colors duration-200">
+                      <Edit size={18} />
+                    </button>
+                    <button onClick={() => handleDelete(admin.id)} className="text-red-500 hover:text-red-700 transition-colors duration-200">
+                      <Trash2 size={18} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+      {isModalOpen && <AdminModal admin={editingAdmin} onSave={handleSave} onClose={() => setIsModalOpen(false)} />}
+    </>
+  );
+};
+
 
 // --- Modal Components ---
 const GuardModal = ({ guard, onSave, onClose }) => {
+  const { isDark } = useTheme();
   const [formData, setFormData] = useState({
     name: guard?.name || '',
     email: guard?.email || '',
@@ -364,19 +680,200 @@ const GuardModal = ({ guard, onSave, onClose }) => {
   
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-30">
-      <div className="bg-white p-8 rounded-lg shadow-2xl w-full max-w-md">
+      <div className={`p-8 rounded-lg shadow-2xl w-full max-w-md transition-colors duration-200 ${
+        isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
+      }`}>
         <div className="flex justify-between items-center mb-6">
-          <h3 className="text-2xl font-bold">{guard ? 'Edit Guard' : 'Add New Guard'}</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-800"><X size={24} /></button>
+          <h3 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-800'}`}>
+            {guard ? 'Edit Guard' : 'Add New Guard'}
+          </h3>
+          <button 
+            onClick={onClose} 
+            className={`p-2 rounded-lg transition-colors duration-200 ${
+              isDark ? 'text-gray-400 hover:text-white hover:bg-gray-700' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
+            }`}
+          >
+            <X size={24} />
+          </button>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <input type="text" placeholder="Name" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} required className="w-full px-4 py-2 border rounded-lg" />
-          <input type="email" placeholder="Email (Optional)" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="w-full px-4 py-2 border rounded-lg" />
-          <input type="tel" placeholder="10-Digit Phone (Optional)" value={formData.phone} onChange={handlePhoneChange} className="w-full px-4 py-2 border rounded-lg" />
-          <input type="password" placeholder={guard ? 'New PIN (Leave blank to keep same)' : 'PIN'} value={formData.pin} onChange={(e) => setFormData({...formData, pin: e.target.value})} required={!guard} className="w-full px-4 py-2 border rounded-lg" />
+          <input 
+            type="text" 
+            placeholder="Name" 
+            value={formData.name} 
+            onChange={(e) => setFormData({...formData, name: e.target.value})} 
+            required 
+            className={`w-full px-4 py-2 border rounded-lg transition-colors duration-200 ${
+              isDark 
+                ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500' 
+                : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500'
+            } focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50`}
+          />
+          <input 
+            type="email" 
+            placeholder="Email (Optional)" 
+            value={formData.email} 
+            onChange={(e) => setFormData({...formData, email: e.target.value})} 
+            className={`w-full px-4 py-2 border rounded-lg transition-colors duration-200 ${
+              isDark 
+                ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500' 
+                : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500'
+            } focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50`}
+          />
+          <input 
+            type="tel" 
+            placeholder="10-Digit Phone (Optional)" 
+            value={formData.phone} 
+            onChange={handlePhoneChange} 
+            className={`w-full px-4 py-2 border rounded-lg transition-colors duration-200 ${
+              isDark 
+                ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500' 
+                : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500'
+            } focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50`}
+          />
+          <input 
+            type="password" 
+            placeholder={guard ? 'New PIN (Leave blank to keep same)' : 'PIN'} 
+            value={formData.pin} 
+            onChange={(e) => setFormData({...formData, pin: e.target.value})} 
+            required={!guard} 
+            className={`w-full px-4 py-2 border rounded-lg transition-colors duration-200 ${
+              isDark 
+                ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500' 
+                : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500'
+            } focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50`}
+          />
           <div className="flex justify-end space-x-4 pt-4">
-            <button type="button" onClick={onClose} className="py-2 px-4 bg-gray-200 hover:bg-gray-300 rounded-lg">Cancel</button>
-            <button type="submit" className="py-2 px-4 bg-blue-600 text-white hover:bg-blue-700 rounded-lg">Save Guard</button>
+            <button 
+              type="button" 
+              onClick={onClose} 
+              className={`py-2 px-4 rounded-lg transition-colors duration-200 ${
+                isDark 
+                  ? 'bg-gray-600 hover:bg-gray-700 text-white' 
+                  : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+              }`}
+            >
+              Cancel
+            </button>
+            <button 
+              type="submit" 
+              className="py-2 px-4 bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors duration-200"
+            >
+              Save Guard
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+const AdminModal = ({ admin, onSave, onClose }) => {
+  const { isDark } = useTheme();
+  const [formData, setFormData] = useState({
+    name: admin?.name || '',
+    email: admin?.email || '',
+    phone: admin?.phone || '',
+    pin: '',
+  });
+
+  const handlePhoneChange = (e) => {
+    const numericValue = e.target.value.replace(/[^0-9]/g, '');
+    if (numericValue.length <= 10) {
+      setFormData({ ...formData, phone: numericValue });
+    }
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const dataToSave = { ...formData };
+    if (!dataToSave.pin) delete dataToSave.pin;
+    onSave(dataToSave);
+  };
+  
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-30">
+      <div className={`p-8 rounded-lg shadow-2xl w-full max-w-md transition-colors duration-200 ${
+        isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
+      }`}>
+        <div className="flex justify-between items-center mb-6">
+          <h3 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-800'}`}>
+            {admin ? 'Edit Admin' : 'Add New Admin'}
+          </h3>
+          <button 
+            onClick={onClose} 
+            className={`p-2 rounded-lg transition-colors duration-200 ${
+              isDark ? 'text-gray-400 hover:text-white hover:bg-gray-700' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
+            }`}
+          >
+            <X size={24} />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <input 
+            type="text" 
+            placeholder="Name" 
+            value={formData.name} 
+            onChange={(e) => setFormData({...formData, name: e.target.value})} 
+            required 
+            className={`w-full px-4 py-2 border rounded-lg transition-colors duration-200 ${
+              isDark 
+                ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500' 
+                : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500'
+            } focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50`}
+          />
+          <input 
+            type="email" 
+            placeholder="Email (Optional)" 
+            value={formData.email} 
+            onChange={(e) => setFormData({...formData, email: e.target.value})} 
+            className={`w-full px-4 py-2 border rounded-lg transition-colors duration-200 ${
+              isDark 
+                ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500' 
+                : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500'
+            } focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50`}
+          />
+          <input 
+            type="tel" 
+            placeholder="10-Digit Phone (Optional)" 
+            value={formData.phone} 
+            onChange={handlePhoneChange} 
+            className={`w-full px-4 py-2 border rounded-lg transition-colors duration-200 ${
+              isDark 
+                ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500' 
+                : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500'
+            } focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50`}
+          />
+          <input 
+            type="password" 
+            placeholder={admin ? 'New PIN (Leave blank to keep same)' : 'PIN'} 
+            value={formData.pin} 
+            onChange={(e) => setFormData({...formData, pin: e.target.value})} 
+            required={!admin} 
+            className={`w-full px-4 py-2 border rounded-lg transition-colors duration-200 ${
+              isDark 
+                ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500' 
+                : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500'
+            } focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50`}
+          />
+          <div className="flex justify-end space-x-4 pt-4">
+            <button 
+              type="button" 
+              onClick={onClose} 
+              className={`py-2 px-4 rounded-lg transition-colors duration-200 ${
+                isDark 
+                  ? 'bg-gray-600 hover:bg-gray-700 text-white' 
+                  : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+              }`}
+            >
+              Cancel
+            </button>
+            <button 
+              type="submit" 
+              className="py-2 px-4 bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors duration-200"
+            >
+              Save Admin
+            </button>
           </div>
         </form>
       </div>
@@ -484,6 +981,7 @@ const VisitorDetailsModal = ({ visit, onClose }) => {
 };
 
 const DownloadReportModal = ({ onClose }) => {
+    const { isDark } = useTheme();
     const allColumns = [ 'Visitor Name', 'Visitor Email', 'Visitor Phone', 'Host Name', 'Host Email', 'Check-in Time', 'Check-out Time', 'Length of Stay', 'Status' ];
     const [selectedColumns, setSelectedColumns] = useState(new Set(allColumns));
     const [format, setFormat] = useState('csv');
@@ -529,44 +1027,107 @@ const DownloadReportModal = ({ onClose }) => {
     
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-30 p-4">
-            <div onClick={e => e.stopPropagation()} className="bg-white p-8 rounded-lg shadow-2xl w-full max-w-2xl">
+            <div onClick={e => e.stopPropagation()} className={`p-8 rounded-lg shadow-2xl w-full max-w-2xl transition-colors duration-200 ${
+                isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
+            }`}>
                 <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-2xl font-bold">Configure Report</h3>
-                    <button onClick={onClose} className="text-gray-500 hover:text-gray-800"><X size={24} /></button>
+                    <h3 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-800'}`}>Configure Report</h3>
+                    <button 
+                        onClick={onClose} 
+                        className={`p-2 rounded-lg transition-colors duration-200 ${
+                            isDark ? 'text-gray-400 hover:text-white hover:bg-gray-700' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
+                        }`}
+                    >
+                        <X size={24} />
+                    </button>
                 </div>
                 
                 <div className="mb-6">
-                    <label className="block font-semibold mb-2">Date Range:</label>
+                    <label className={`block font-semibold mb-2 ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>Date Range:</label>
                     <div className="flex items-center space-x-4">
-                        <DatePicker selected={startDate} onChange={date => setStartDate(date)} className="w-full px-4 py-2 border rounded-lg" />
-                        <span className="text-gray-500">to</span>
-                        <DatePicker selected={endDate} onChange={date => setEndDate(date)} className="w-full px-4 py-2 border rounded-lg" />
+                        <DatePicker 
+                            selected={startDate} 
+                            onChange={date => setStartDate(date)} 
+                            className={`w-full px-4 py-2 border rounded-lg transition-colors duration-200 ${
+                                isDark 
+                                    ? 'bg-gray-700 border-gray-600 text-white focus:border-blue-500' 
+                                    : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500'
+                            }`}
+                        />
+                        <span className={isDark ? 'text-gray-400' : 'text-gray-500'}>to</span>
+                        <DatePicker 
+                            selected={endDate} 
+                            onChange={date => setEndDate(date)} 
+                            className={`w-full px-4 py-2 border rounded-lg transition-colors duration-200 ${
+                                isDark 
+                                    ? 'bg-gray-700 border-gray-600 text-white focus:border-blue-500' 
+                                    : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500'
+                            }`}
+                        />
                     </div>
                 </div>
 
                 <div className="mb-6">
-                    <label className="block font-semibold mb-2">Include Columns:</label>
+                    <label className={`block font-semibold mb-2 ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>Include Columns:</label>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
                         {allColumns.map(col => (
-                            <label key={col} className="flex items-center space-x-2 cursor-pointer">
-                                <input type="checkbox" checked={selectedColumns.has(col)} onChange={() => handleColumnToggle(col)} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"/>
-                                <span>{col}</span>
+                            <label key={col} className={`flex items-center space-x-2 cursor-pointer p-2 rounded transition-colors duration-200 ${
+                                isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-50'
+                            }`}>
+                                <input 
+                                    type="checkbox" 
+                                    checked={selectedColumns.has(col)} 
+                                    onChange={() => handleColumnToggle(col)} 
+                                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                />
+                                <span className={isDark ? 'text-gray-300' : 'text-gray-700'}>{col}</span>
                             </label>
                         ))}
                     </div>
                 </div>
 
                 <div className="mb-8">
-                    <label className="block font-semibold mb-2">Format:</label>
+                    <label className={`block font-semibold mb-2 ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>Format:</label>
                     <div className="flex items-center space-x-4">
-                        <label className="flex items-center space-x-2 cursor-pointer"><input type="radio" name="format" value="csv" checked={format === 'csv'} onChange={() => setFormat('csv')} /><span>CSV</span></label>
-                        <label className="flex items-center space-x-2 cursor-pointer"><input type="radio" name="format" value="pdf" checked={format === 'pdf'} onChange={() => setFormat('pdf')} /><span>PDF</span></label>
+                        <label className={`flex items-center space-x-2 cursor-pointer p-2 rounded transition-colors duration-200 ${
+                            isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-50'
+                        }`}>
+                            <input type="radio" name="format" value="csv" checked={format === 'csv'} onChange={() => setFormat('csv')} />
+                            <span className={isDark ? 'text-gray-300' : 'text-gray-700'}>CSV</span>
+                        </label>
+                        <label className={`flex items-center space-x-2 cursor-pointer p-2 rounded transition-colors duration-200 ${
+                            isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-50'
+                        }`}>
+                            <input type="radio" name="format" value="pdf" checked={format === 'pdf'} onChange={() => setFormat('pdf')} />
+                            <span className={isDark ? 'text-gray-300' : 'text-gray-700'}>PDF</span>
+                        </label>
                     </div>
                 </div>
                 
                 <div className="flex justify-end space-x-4">
-                    <button type="button" onClick={onClose} className="py-2 px-4 bg-gray-200 rounded-lg hover:bg-gray-300">Cancel</button>
-                    <button type="button" onClick={handleDownload} disabled={isDownloading} className="py-2 px-6 bg-blue-600 text-white rounded-lg disabled:bg-blue-400">
+                    <button 
+                        type="button" 
+                        onClick={onClose} 
+                        className={`py-2 px-4 rounded-lg transition-colors duration-200 ${
+                            isDark 
+                                ? 'bg-gray-600 hover:bg-gray-700 text-white' 
+                                : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                        }`}
+                    >
+                        Cancel
+                    </button>
+                    <button 
+                        type="button" 
+                        onClick={handleDownload} 
+                        disabled={isDownloading} 
+                        className={`py-2 px-6 rounded-lg transition-colors duration-200 ${
+                            isDownloading
+                                ? isDark 
+                                    ? 'bg-blue-700 text-gray-300' 
+                                    : 'bg-blue-400 text-gray-200'
+                                : 'bg-blue-600 hover:bg-blue-700 text-white'
+                        } disabled:cursor-not-allowed`}
+                    >
                         {isDownloading ? 'Generating...' : 'Download'}
                     </button>
                 </div>
