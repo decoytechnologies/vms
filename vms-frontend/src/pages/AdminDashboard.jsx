@@ -16,7 +16,10 @@ import {
   Sun,
   Moon,
   LogOut,
-  Plus
+  Plus,
+  Building2,
+  Upload,
+  FileSpreadsheet
 } from 'lucide-react';
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -66,6 +69,8 @@ const AdminDashboard = ({ onLogout }) => {
         return <GuardManagementTab />;
       case 'admins':
         return <AdminManagementTab />;
+      case 'employees':
+        return <EmployeeManagementTab />;
       case 'log':
       default:
         return <VisitorLogTab onOpenDetails={openVisitorDetails} />;
@@ -105,6 +110,7 @@ const AdminDashboardContent = ({
     { id: 'reports', title: 'Reports', icon: Download },
     { id: 'guards', title: 'Guard Management', icon: Shield },
     { id: 'admins', title: 'Admin Management', icon: Users },
+    { id: 'employees', title: 'Employee Management', icon: Building2 },
   ];
 
   return (
@@ -139,8 +145,8 @@ const AdminDashboardContent = ({
                             : 'text-gray-600 hover:bg-gray-100'
                       }`}
                     >
-                      <Icon size={20} />
-                      <span className="font-medium">{item.title}</span>
+                      <Icon size={18} />
+                      <span className="font-medium text-sm">{item.title}</span>
                     </button>
                   </li>
                 );
@@ -653,6 +659,189 @@ const AdminManagementTab = () => {
   );
 };
 
+// --- Employee Management Tab Component ---
+const EmployeeManagementTab = () => {
+  const { isDark } = useTheme();
+  const [employees, setEmployees] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingEmployee, setEditingEmployee] = useState(null);
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+
+  const fetchEmployees = async () => {
+    setLoading(true);
+    try {
+      const res = await apiClient.get('/admin/employees');
+      setEmployees(res.data);
+    } catch (error) {
+      console.error("Failed to fetch employees:", error);
+      alert("Could not load the list of employees. Please try refreshing the page.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchEmployees();
+  }, []);
+
+  const handleSave = async (employeeData) => {
+    try {
+        if (editingEmployee) {
+          await apiClient.put(`/admin/employees/${editingEmployee.id}`, employeeData);
+        } else {
+          await apiClient.post('/admin/employees', employeeData);
+        }
+        fetchEmployees();
+        setIsModalOpen(false);
+        setEditingEmployee(null);
+    } catch (error) {
+        const message = error.response?.data?.message || 'Failed to save employee. Please check the details and try again.';
+        alert(message);
+    }
+  };
+  
+  const handleDelete = async (employeeId) => {
+    if (window.confirm("Are you sure you want to delete this employee? This action cannot be undone.")) {
+      try {
+        await apiClient.delete(`/admin/employees/${employeeId}`);
+        fetchEmployees();
+      } catch (error) {
+        const message = error.response?.data?.message || 'Failed to delete employee.';
+        alert(message);
+      }
+    }
+  };
+
+  const handleDownloadTemplate = async () => {
+    try {
+      const response = await apiClient.get('/admin/employees/template', {
+        responseType: 'blob'
+      });
+      
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'employee_template.csv');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      alert('Failed to download template.');
+    }
+  };
+
+  return (
+    <>
+      <Card>
+        <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
+          <CardTitle>Manage Employee Accounts</CardTitle>
+          <div className="flex flex-wrap gap-3">
+            <button 
+              onClick={handleDownloadTemplate}
+              className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200"
+            >
+              <FileSpreadsheet size={18} />
+              <span>Download Template</span>
+            </button>
+            <button 
+              onClick={() => setIsBulkModalOpen(true)}
+              className="flex items-center space-x-2 bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200"
+            >
+              <Upload size={18} />
+              <span>Bulk Upload</span>
+            </button>
+            <button 
+              onClick={() => { setEditingEmployee(null); setIsModalOpen(true); }} 
+              className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200"
+            >
+              <UserPlus size={18} />
+              <span>Add Employee</span>
+            </button>
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className={`min-w-full transition-colors duration-200 ${isDark ? 'bg-gray-800' : 'bg-white'}`}>
+            <thead className={isDark ? 'bg-gray-700' : 'bg-gray-200'}>
+              <tr>
+                <th className={`text-left py-3 px-4 uppercase font-semibold text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Name</th>
+                <th className={`text-left py-3 px-4 uppercase font-semibold text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Email</th>
+                <th className={`text-left py-3 px-4 uppercase font-semibold text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Phone</th>
+                <th className={`text-left py-3 px-4 uppercase font-semibold text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Department</th>
+                <th className={`text-left py-3 px-4 uppercase font-semibold text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Visitors</th>
+                <th className={`text-left py-3 px-4 uppercase font-semibold text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Actions</th>
+              </tr>
+            </thead>
+            <tbody className={isDark ? 'text-gray-300' : 'text-gray-700'}>
+              {loading ? (
+                <tr><td colSpan="6" className="text-center py-4">Loading...</td></tr>
+              ) : employees.map(employee => (
+                <tr key={employee.id} className={`border-b transition-colors duration-200 ${
+                  isDark ? 'border-gray-700 hover:bg-gray-700' : 'border-gray-200 hover:bg-gray-50'
+                }`}>
+                  <td className="py-3 px-4 font-medium">{employee.name}</td>
+                  <td className="py-3 px-4">{employee.email}</td>
+                  <td className="py-3 px-4">{employee.phone || 'N/A'}</td>
+                  <td className="py-3 px-4">{employee.department || 'N/A'}</td>
+                  <td className="py-3 px-4">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      employee.visitorCount > 0 
+                        ? 'bg-blue-100 text-blue-800' 
+                        : isDark 
+                          ? 'bg-gray-700 text-gray-300' 
+                          : 'bg-gray-100 text-gray-600'
+                    }`}>
+                      {employee.visitorCount} visits
+                    </span>
+                  </td>
+                  <td className="py-3 px-4 flex space-x-4">
+                    <button 
+                      onClick={() => { setEditingEmployee(employee); setIsModalOpen(true); }} 
+                      className="text-blue-500 hover:text-blue-700 transition-colors duration-200"
+                      title="Edit Employee"
+                    >
+                      <Edit size={18} />
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(employee.id)} 
+                      className="text-red-500 hover:text-red-700 transition-colors duration-200"
+                      title="Delete Employee"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {!loading && employees.length === 0 && (
+          <div className="text-center py-8">
+            <Building2 size={48} className={`mx-auto mb-4 ${isDark ? 'text-gray-600' : 'text-gray-400'}`} />
+            <p className={`text-lg font-medium ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>No employees found</p>
+            <p className={`text-sm ${isDark ? 'text-gray-500' : 'text-gray-500'} mt-2`}>
+              Add your first employee or upload a CSV file to get started
+            </p>
+          </div>
+        )}
+      </Card>
+      {isModalOpen && (
+        <EmployeeModal 
+          employee={editingEmployee} 
+          onSave={handleSave} 
+          onClose={() => setIsModalOpen(false)} 
+        />
+      )}
+      {isBulkModalOpen && (
+        <BulkUploadModal 
+          onClose={() => setIsBulkModalOpen(false)}
+          onSuccess={fetchEmployees}
+        />
+      )}
+    </>
+  );
+};
+
 
 // --- Modal Components ---
 const GuardModal = ({ guard, onSave, onClose }) => {
@@ -876,6 +1065,344 @@ const AdminModal = ({ admin, onSave, onClose }) => {
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+};
+
+const EmployeeModal = ({ employee, onSave, onClose }) => {
+  const { isDark } = useTheme();
+  const [formData, setFormData] = useState({
+    name: employee?.name || '',
+    email: employee?.email || '',
+    phone: employee?.phone || '',
+    department: employee?.department || '',
+  });
+  const [errors, setErrors] = useState({});
+
+  const handlePhoneChange = (e) => {
+    const numericValue = e.target.value.replace(/[^0-9]/g, '');
+    if (numericValue.length <= 10) {
+      setFormData({ ...formData, phone: numericValue });
+      if (errors.phone) {
+        setErrors({ ...errors, phone: '' });
+      }
+    }
+  };
+
+  const handleEmailChange = (e) => {
+    const email = e.target.value;
+    setFormData({ ...formData, email });
+    
+    // Clear email error when user starts typing
+    if (errors.email) {
+      setErrors({ ...errors, email: '' });
+    }
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+    
+    if (!formData.name.trim()) {
+      newErrors.name = 'Name is required';
+    }
+    
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email is required';
+    } else {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.email.trim())) {
+        newErrors.email = 'Invalid email format';
+      }
+    }
+    
+    if (formData.phone && formData.phone.length < 10) {
+      newErrors.phone = 'Phone number must be at least 10 digits';
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (validateForm()) {
+      onSave(formData);
+    }
+  };
+  
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-30">
+      <div className={`p-8 rounded-lg shadow-2xl w-full max-w-md transition-colors duration-200 ${
+        isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
+      }`}>
+        <div className="flex justify-between items-center mb-6">
+          <h3 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-800'}`}>
+            {employee ? 'Edit Employee' : 'Add New Employee'}
+          </h3>
+          <button 
+            onClick={onClose} 
+            className={`p-2 rounded-lg transition-colors duration-200 ${
+              isDark ? 'text-gray-400 hover:text-white hover:bg-gray-700' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
+            }`}
+          >
+            <X size={24} />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <input 
+              type="text" 
+              placeholder="Employee Name *" 
+              value={formData.name} 
+              onChange={(e) => {
+                setFormData({...formData, name: e.target.value});
+                if (errors.name) setErrors({...errors, name: ''});
+              }} 
+              className={`w-full px-4 py-2 border rounded-lg transition-colors duration-200 ${
+                errors.name 
+                  ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
+                  : isDark 
+                    ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500' 
+                    : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500'
+              } ${isDark ? 'bg-gray-700 text-white placeholder-gray-400' : 'bg-white text-gray-900 placeholder-gray-500'} focus:outline-none focus:ring-2 focus:ring-opacity-50`}
+            />
+            {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
+          </div>
+          <div>
+            <input 
+              type="email" 
+              placeholder="Email Address *" 
+              value={formData.email} 
+              onChange={handleEmailChange} 
+              className={`w-full px-4 py-2 border rounded-lg transition-colors duration-200 ${
+                errors.email 
+                  ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
+                  : isDark 
+                    ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500' 
+                    : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500'
+              } ${isDark ? 'bg-gray-700 text-white placeholder-gray-400' : 'bg-white text-gray-900 placeholder-gray-500'} focus:outline-none focus:ring-2 focus:ring-opacity-50`}
+            />
+            {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
+          </div>
+          <div>
+            <input 
+              type="tel" 
+              placeholder="10-Digit Phone (Optional)" 
+              value={formData.phone} 
+              onChange={handlePhoneChange} 
+              className={`w-full px-4 py-2 border rounded-lg transition-colors duration-200 ${
+                errors.phone 
+                  ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
+                  : isDark 
+                    ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500' 
+                    : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500'
+              } ${isDark ? 'bg-gray-700 text-white placeholder-gray-400' : 'bg-white text-gray-900 placeholder-gray-500'} focus:outline-none focus:ring-2 focus:ring-opacity-50`}
+            />
+            {errors.phone && <p className="text-red-500 text-sm mt-1">{errors.phone}</p>}
+          </div>
+          <input 
+            type="text" 
+            placeholder="Department (Optional)" 
+            value={formData.department} 
+            onChange={(e) => setFormData({...formData, department: e.target.value})} 
+            className={`w-full px-4 py-2 border rounded-lg transition-colors duration-200 ${
+              isDark 
+                ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500' 
+                : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500'
+            } focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50`}
+          />
+          <div className="flex justify-end space-x-4 pt-4">
+            <button 
+              type="button" 
+              onClick={onClose} 
+              className={`py-2 px-4 rounded-lg transition-colors duration-200 ${
+                isDark 
+                  ? 'bg-gray-600 hover:bg-gray-700 text-white' 
+                  : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+              }`}
+            >
+              Cancel
+            </button>
+            <button 
+              type="submit" 
+              className="py-2 px-4 bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors duration-200"
+            >
+              Save Employee
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+const BulkUploadModal = ({ onClose, onSuccess }) => {
+  const { isDark } = useTheme();
+  const [csvData, setCsvData] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadResults, setUploadResults] = useState(null);
+
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    if (file && file.type === 'text/csv') {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setCsvData(e.target.result);
+      };
+      reader.readAsText(file);
+    } else {
+      alert('Please select a valid CSV file.');
+    }
+  };
+
+  const parseCSV = (csvText) => {
+    const lines = csvText.trim().split('\n');
+    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+    const employees = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].split(',').map(v => v.trim());
+      if (values.length >= 2) { // At least name and email
+        const employee = {};
+        headers.forEach((header, index) => {
+          if (values[index]) {
+            employee[header] = values[index];
+          }
+        });
+        employees.push(employee);
+      }
+    }
+    return employees;
+  };
+
+  const handleUpload = async () => {
+    if (!csvData) {
+      alert('Please upload a CSV file first.');
+      return;
+    }
+
+    try {
+      setIsUploading(true);
+      const employees = parseCSV(csvData);
+      
+      if (employees.length === 0) {
+        alert('No valid employee data found in the CSV file.');
+        return;
+      }
+
+      const response = await apiClient.post('/admin/employees/bulk', { employees });
+      setUploadResults(response.data.results);
+      
+      if (response.data.results.created.length > 0) {
+        onSuccess();
+      }
+    } catch (error) {
+      alert('Failed to upload employees. Please check your CSV format and try again.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-30 p-4">
+      <div className={`p-8 rounded-lg shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-y-auto transition-colors duration-200 ${
+        isDark ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
+      }`}>
+        <div className="flex justify-between items-center mb-6">
+          <h3 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-800'}`}>Bulk Upload Employees</h3>
+          <button 
+            onClick={onClose} 
+            className={`p-2 rounded-lg transition-colors duration-200 ${
+              isDark ? 'text-gray-400 hover:text-white hover:bg-gray-700' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
+            }`}
+          >
+            <X size={24} />
+          </button>
+        </div>
+
+        <div className="space-y-6">
+          <div>
+            <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+              Upload CSV File
+            </label>
+            <input
+              type="file"
+              accept=".csv"
+              onChange={handleFileUpload}
+              className={`w-full px-3 py-2 border rounded-lg transition-colors duration-200 ${
+                isDark 
+                  ? 'bg-gray-700 border-gray-600 text-white' 
+                  : 'bg-white border-gray-300 text-gray-900'
+              }`}
+            />
+            <p className={`text-xs mt-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+              CSV should contain: Name, Email, Phone, Department
+            </p>
+          </div>
+
+          {csvData && (
+            <div>
+              <label className={`block text-sm font-medium mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                Preview (First 5 lines)
+              </label>
+              <textarea
+                value={csvData.split('\n').slice(0, 5).join('\n')}
+                readOnly
+                rows={5}
+                className={`w-full px-3 py-2 border rounded-lg font-mono text-sm transition-colors duration-200 ${
+                  isDark 
+                    ? 'bg-gray-700 border-gray-600 text-gray-300' 
+                    : 'bg-gray-50 border-gray-300 text-gray-700'
+                }`}
+              />
+            </div>
+          )}
+
+          {uploadResults && (
+            <div className="space-y-3">
+              <h4 className={`font-medium ${isDark ? 'text-white' : 'text-gray-800'}`}>Upload Results:</h4>
+              <div className="grid grid-cols-3 gap-4 text-sm">
+                <div className={`p-3 rounded-lg ${isDark ? 'bg-green-900/20 border border-green-700' : 'bg-green-50 border border-green-200'}`}>
+                  <div className="text-green-600 font-medium">Created</div>
+                  <div className="text-2xl font-bold text-green-600">{uploadResults.created.length}</div>
+                </div>
+                <div className={`p-3 rounded-lg ${isDark ? 'bg-yellow-900/20 border border-yellow-700' : 'bg-yellow-50 border border-yellow-200'}`}>
+                  <div className="text-yellow-600 font-medium">Duplicates</div>
+                  <div className="text-2xl font-bold text-yellow-600">{uploadResults.duplicates.length}</div>
+                </div>
+                <div className={`p-3 rounded-lg ${isDark ? 'bg-red-900/20 border border-red-700' : 'bg-red-50 border border-red-200'}`}>
+                  <div className="text-red-600 font-medium">Errors</div>
+                  <div className="text-2xl font-bold text-red-600">{uploadResults.errors.length}</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end space-x-4 pt-4">
+            <button 
+              onClick={onClose} 
+              className={`py-2 px-4 rounded-lg transition-colors duration-200 ${
+                isDark 
+                  ? 'bg-gray-600 hover:bg-gray-700 text-white' 
+                  : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+              }`}
+            >
+              Close
+            </button>
+            <button 
+              onClick={handleUpload}
+              disabled={isUploading || !csvData}
+              className={`py-2 px-4 rounded-lg transition-colors duration-200 ${
+                isUploading || !csvData
+                  ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                  : 'bg-purple-600 hover:bg-purple-700 text-white'
+              }`}
+            >
+              {isUploading ? 'Uploading...' : 'Upload Employees'}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

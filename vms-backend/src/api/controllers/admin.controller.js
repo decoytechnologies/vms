@@ -174,6 +174,310 @@ exports.searchEmployees = async (req, res) => {
   }
 };
 
+// --- Employee Management (CRUD) ---
+exports.getEmployees = async (req, res) => {
+  const { tenantId } = req.user;
+  try {
+    const employees = await Employee.findAll({ 
+      where: { tenantId },
+      include: [{
+        model: Visit,
+        attributes: ['id'],
+        required: false
+      }],
+      order: [['name', 'ASC']]
+    });
+    
+    // Add visitor count to each employee
+    const employeesWithStats = employees.map(employee => ({
+      id: employee.id,
+      name: employee.name,
+      email: employee.email,
+      phone: employee.phone,
+      department: employee.department,
+      createdAt: employee.createdAt,
+      visitorCount: employee.Visits ? employee.Visits.length : 0
+    }));
+    
+    res.status(200).json(employeesWithStats);
+  } catch (error) {
+    console.error('Error fetching employees:', error);
+    res.status(500).json({ message: 'Failed to fetch employees.' });
+  }
+};
+
+exports.createEmployee = async (req, res) => {
+  const { name, email, phone, department } = req.body;
+  const { tenantId } = req.user;
+  
+  if (!name || !email) {
+    return res.status(400).json({ message: 'Employee name and email are required.' });
+  }
+  
+  try {
+    // Check if employee with this email already exists
+    const existingEmployee = await Employee.findOne({ where: { email, tenantId } });
+    if (existingEmployee) {
+      return res.status(409).json({ message: 'Employee with this email already exists.' });
+    }
+    
+    const newEmployee = await Employee.create({ 
+      name, 
+      email, 
+      phone, 
+      department, 
+      tenantId 
+    });
+    
+    res.status(201).json({
+      id: newEmployee.id,
+      name: newEmployee.name,
+      email: newEmployee.email,
+      phone: newEmployee.phone,
+      department: newEmployee.department,
+      visitorCount: 0
+    });
+  } catch (error) {
+    console.error('Error creating employee:', error);
+    res.status(500).json({ message: 'Failed to create employee.' });
+  }
+};
+
+exports.updateEmployee = async (req, res) => {
+  const { id } = req.params;
+  const { name, email, phone, department } = req.body;
+  const { tenantId } = req.user;
+  
+  try {
+    const employee = await Employee.findOne({ where: { id, tenantId } });
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found.' });
+    }
+    
+    // Check if email is being changed and if it conflicts with another employee
+    if (email && email !== employee.email) {
+      const existingEmployee = await Employee.findOne({ where: { email, tenantId } });
+      if (existingEmployee) {
+        return res.status(409).json({ message: 'Employee with this email already exists.' });
+      }
+    }
+    
+    employee.name = name || employee.name;
+    employee.email = email || employee.email;
+    employee.phone = phone;
+    employee.department = department;
+    
+    await employee.save();
+    
+    // Get visitor count
+    const visitorCount = await Visit.count({ where: { employeeId: employee.id } });
+    
+    res.status(200).json({
+      id: employee.id,
+      name: employee.name,
+      email: employee.email,
+      phone: employee.phone,
+      department: employee.department,
+      visitorCount
+    });
+  } catch (error) {
+    console.error('Error updating employee:', error);
+    res.status(500).json({ message: 'Failed to update employee.' });
+  }
+};
+
+exports.deleteEmployee = async (req, res) => {
+  const { id } = req.params;
+  const { tenantId } = req.user;
+  
+  try {
+    const employee = await Employee.findOne({ where: { id, tenantId } });
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found.' });
+    }
+    
+    // Check if employee has any visits
+    const visitCount = await Visit.count({ where: { employeeId: employee.id } });
+    if (visitCount > 0) {
+      return res.status(400).json({ 
+        message: `Cannot delete employee. They have ${visitCount} associated visit(s). Please contact admin to reassign visits first.` 
+      });
+    }
+    
+    await employee.destroy();
+    res.status(200).json({ message: 'Employee deleted successfully.' });
+  } catch (error) {
+    console.error('Error deleting employee:', error);
+    res.status(500).json({ message: 'Failed to delete employee.' });
+  }
+};
+
+exports.bulkCreateEmployees = async (req, res) => {
+  const { employees } = req.body;
+  const { tenantId } = req.user;
+  
+  if (!employees || !Array.isArray(employees) || employees.length === 0) {
+    return res.status(400).json({ message: 'Employees array is required.' });
+  }
+  
+  try {
+    const results = {
+      created: [],
+      errors: [],
+      duplicates: []
+    };
+    
+    // First, validate the CSV for internal duplicates and basic validation
+    const emailMap = new Map();
+    const processedEmployees = [];
+    
+    for (let i = 0; i < employees.length; i++) {
+      const { name, email, phone, department } = employees[i];
+      
+      // Check for required fields
+      if (!name || !email) {
+        results.errors.push({
+          row: i + 1,
+          data: employees[i],
+          error: 'Name and email are required'
+        });
+        continue;
+      }
+      
+      // Normalize email to lowercase for consistent checking
+      const normalizedEmail = email.toLowerCase().trim();
+      
+      // Check for duplicates within the CSV file itself
+      if (emailMap.has(normalizedEmail)) {
+        results.duplicates.push({
+          row: i + 1,
+          data: employees[i],
+          error: `Duplicate email in CSV file (also found at row ${emailMap.get(normalizedEmail)})`
+        });
+        continue;
+      }
+      
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(normalizedEmail)) {
+        results.errors.push({
+          row: i + 1,
+          data: employees[i],
+          error: 'Invalid email format'
+        });
+        continue;
+      }
+      
+      // Validate phone number if provided
+      if (phone && phone.trim()) {
+        const phoneRegex = /^[\d\s\-\+\(\)]{10,}$/;
+        if (!phoneRegex.test(phone.trim())) {
+          results.errors.push({
+            row: i + 1,
+            data: employees[i],
+            error: 'Invalid phone number format'
+          });
+          continue;
+        }
+      }
+      
+      emailMap.set(normalizedEmail, i + 1);
+      processedEmployees.push({
+        ...employees[i],
+        email: normalizedEmail,
+        originalRow: i + 1
+      });
+    }
+    
+    // Now process the validated employees against the database
+    for (const employeeData of processedEmployees) {
+      const { name, email, phone, department, originalRow } = employeeData;
+      
+      try {
+        // Check if employee already exists in database
+        const existing = await Employee.findOne({ where: { email, tenantId } });
+        if (existing) {
+          results.duplicates.push({
+            row: originalRow,
+            data: { name, email, phone, department },
+            error: 'Employee with this email already exists in database'
+          });
+          continue;
+        }
+        
+        const newEmployee = await Employee.create({
+          name: name.trim(),
+          email,
+          phone: phone ? phone.trim() : null,
+          department: department ? department.trim() : null,
+          tenantId
+        });
+        
+        results.created.push({
+          row: originalRow,
+          employee: {
+            id: newEmployee.id,
+            name: newEmployee.name,
+            email: newEmployee.email,
+            phone: newEmployee.phone,
+            department: newEmployee.department
+          }
+        });
+      } catch (error) {
+        results.errors.push({
+          row: originalRow,
+          data: { name, email, phone, department },
+          error: error.message
+        });
+      }
+    }
+    
+    res.status(200).json({
+      message: `Bulk upload completed. Created: ${results.created.length}, Errors: ${results.errors.length}, Duplicates: ${results.duplicates.length}`,
+      results
+    });
+  } catch (error) {
+    console.error('Error in bulk employee creation:', error);
+    res.status(500).json({ message: 'Failed to process bulk employee creation.' });
+  }
+};
+
+exports.downloadEmployeeTemplate = async (req, res) => {
+  try {
+    const templateData = [
+      {
+        name: 'John Doe',
+        email: 'john.doe@company.com',
+        phone: '1234567890',
+        department: 'Engineering'
+      },
+      {
+        name: 'Jane Smith',
+        email: 'jane.smith@company.com',
+        phone: '0987654321',
+        department: 'Marketing'
+      }
+    ];
+    
+    const fields = [
+      { label: 'Name', value: 'name' },
+      { label: 'Email', value: 'email' },
+      { label: 'Phone', value: 'phone' },
+      { label: 'Department', value: 'department' }
+    ];
+    
+    const parser = new Parser({ fields });
+    const csv = parser.parse(templateData);
+    
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="employee_template.csv"');
+    res.status(200).send(csv);
+  } catch (error) {
+    console.error('Error generating employee template:', error);
+    res.status(500).json({ message: 'Failed to generate employee template.' });
+  }
+};
+
 exports.downloadVisitorLog = async (req, res) => {
     const { tenantId } = req.user;
     const { format, columns, startDate, endDate } = req.body;

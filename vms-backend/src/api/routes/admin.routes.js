@@ -16,6 +16,14 @@ router.post('/admins', [protect, isAdmin], adminController.createAdmin);
 router.put('/admins/:id', [protect, isAdmin], adminController.updateAdmin);
 router.delete('/admins/:id', [protect, isAdmin], adminController.deleteAdmin);
 
+// Employee Management
+router.get('/employees', [protect, isAdmin], adminController.getEmployees);
+router.post('/employees', [protect, isAdmin], adminController.createEmployee);
+router.put('/employees/:id', [protect, isAdmin], adminController.updateEmployee);
+router.delete('/employees/:id', [protect, isAdmin], adminController.deleteEmployee);
+router.post('/employees/bulk', [protect, isAdmin], adminController.bulkCreateEmployees);
+router.get('/employees/template', [protect, isAdmin], adminController.downloadEmployeeTemplate);
+
 // Reports and Data Fetching
 router.get('/visits', [protect, isAdmin], adminController.getAllVisits);
 router.get('/visits/:visitId/images', [protect, isAdmin], adminController.getVisitImageUrls);
