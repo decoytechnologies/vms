@@ -36,9 +36,10 @@ exports.getActiveVisits = async (req, res) => {
     const activeVisits = await Visit.findAll({
       where: { tenantId, status: 'CHECKED_IN' },
       include: [
-        { model: Visitor, attributes: ['name'] },
+        { model: Visitor, attributes: ['name', 'phone'] }, // Added phone for duplicate check
         { model: Employee, attributes: ['name', 'email'], as: 'Employee' }
       ],
+      attributes: ['id', 'checkInTimestamp'], // Include checkInTimestamp for stay duration
       order: [['checkInTimestamp', 'ASC']]
     });
     res.status(200).json(activeVisits);
