@@ -8,7 +8,7 @@ const videoConstraints = {
   facingMode: 'user',
 };
 
-const CheckInPage = () => {
+const CheckInPage = ({ isDark = false }) => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -124,27 +124,27 @@ const CheckInPage = () => {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-      <div className="bg-white p-6 rounded-lg shadow-md">
-        <h2 className="text-xl font-semibold mb-4 text-gray-700">Visitor Details</h2>
+      <div className={`${isDark ? 'bg-slate-800 text-slate-100' : 'bg-white'} p-6 rounded-lg shadow-md border ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>
+        <h2 className={`text-xl font-semibold mb-4 ${isDark ? 'text-slate-100' : 'text-gray-700'}`}>Visitor Details</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="relative">
-            <input type="tel" name="phone" value={formData.phone} onChange={handlePhoneChange} placeholder="Visitor's 10-Digit Phone (for lookup)" required className="w-full px-4 py-2 border rounded-lg" />
+            <input type="tel" name="phone" value={formData.phone} onChange={handlePhoneChange} placeholder="Visitor's 10-Digit Phone (for lookup)" required className={`w-full px-4 py-2 border rounded-lg ${isDark ? 'border-slate-700 bg-slate-900 text-slate-100' : ''}`} />
             {visitorSuggestions.length > 0 && (
-              <ul className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg">
+              <ul className={`absolute z-10 w-full mt-1 border rounded-lg shadow-lg ${isDark ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white'}`}>
                 {visitorSuggestions.map(vis => (
-                  <li key={vis.id} onMouseDown={() => { setFormData({ ...formData, phone: vis.phone, name: vis.name, email: vis.email }); setVisitorSuggestions([]); }} className="px-4 py-2 cursor-pointer hover:bg-gray-100">{vis.name} ({vis.phone})</li>
+                  <li key={vis.id} onMouseDown={() => { setFormData({ ...formData, phone: vis.phone, name: vis.name, email: vis.email }); setVisitorSuggestions([]); }} className={`px-4 py-2 cursor-pointer ${isDark ? 'hover:bg-slate-700' : 'hover:bg-gray-100'}`}>{vis.name} ({vis.phone})</li>
                 ))}
               </ul>
             )}
           </div>
-          <input type="text" name="name" value={formData.name} onChange={handleInputChange} placeholder="Visitor's Full Name" required className="w-full px-4 py-2 border rounded-lg" />
-          <input type="email" name="email" value={formData.email} onChange={handleInputChange} placeholder="Visitor's Email Address" required className="w-full px-4 py-2 border rounded-lg" />
+          <input type="text" name="name" value={formData.name} onChange={handleInputChange} placeholder="Visitor's Full Name" required className={`w-full px-4 py-2 border rounded-lg ${isDark ? 'border-slate-700 bg-slate-900 text-slate-100' : ''}`} />
+          <input type="email" name="email" value={formData.email} onChange={handleInputChange} placeholder="Visitor's Email Address" required className={`w-full px-4 py-2 border rounded-lg ${isDark ? 'border-slate-700 bg-slate-900 text-slate-100' : ''}`} />
           <div className="relative">
-            <input type="email" name="employeeEmail" value={formData.employeeEmail} onChange={handleInputChange} placeholder="Host Employee's Email or Name" required className="w-full px-4 py-2 border rounded-lg" />
+            <input type="email" name="employeeEmail" value={formData.employeeEmail} onChange={handleInputChange} placeholder="Host Employee's Email or Name" required className={`w-full px-4 py-2 border rounded-lg ${isDark ? 'border-slate-700 bg-slate-900 text-slate-100' : ''}`} />
             {employeeSuggestions.length > 0 && (
-              <ul className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg">
+              <ul className={`absolute z-10 w-full mt-1 border rounded-lg shadow-lg ${isDark ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white'}`}>
                 {employeeSuggestions.map(emp => (
-                  <li key={emp.id} onMouseDown={() => { setFormData({ ...formData, employeeEmail: emp.email }); setEmployeeSuggestions([]); }} className="px-4 py-2 cursor-pointer hover:bg-gray-100">{emp.name} ({emp.email})</li>
+                  <li key={emp.id} onMouseDown={() => { setFormData({ ...formData, employeeEmail: emp.email }); setEmployeeSuggestions([]); }} className={`px-4 py-2 cursor-pointer ${isDark ? 'hover:bg-slate-700' : 'hover:bg-gray-100'}`}>{emp.name} ({emp.email})</li>
                 ))}
               </ul>
             )}
@@ -154,12 +154,12 @@ const CheckInPage = () => {
             {loading ? 'Submitting...' : 'Submit Check-In'}
           </button>
           
-          {message.text && ( <div className={`p-3 rounded-lg text-center font-medium ${ message.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }`}> {message.text} </div> )}
+          {message.text && ( <div className={`p-3 rounded-lg text-center font-medium ${ message.type === 'success' ? (isDark ? 'bg-green-900 text-green-100' : 'bg-green-100 text-green-800') : (isDark ? 'bg-red-900 text-red-100' : 'bg-red-100 text-red-800') }`}> {message.text} </div> )}
         </form>
       </div>
 
-      <div className="bg-white p-6 rounded-lg shadow-md">
-        <h2 className="text-xl font-semibold mb-4 text-gray-700">Capture Photos</h2>
+      <div className={`${isDark ? 'bg-slate-800 text-slate-100' : 'bg-white'} p-6 rounded-lg shadow-md border ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>
+        <h2 className={`text-xl font-semibold mb-4 ${isDark ? 'text-slate-100' : 'text-gray-700'}`}>Capture Photos</h2>
         <div className="bg-black rounded-lg overflow-hidden mb-4">
           <Webcam audio={false} ref={webcamRef} screenshotFormat="image/jpeg" width="100%" videoConstraints={videoConstraints} />
         </div>
@@ -169,12 +169,12 @@ const CheckInPage = () => {
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <h3 className="font-semibold text-gray-600 mb-2">Visitor Preview:</h3>
-            {visitorPhoto ? <img src={visitorPhoto} alt="Visitor" className="rounded-lg border" /> : <div className="border rounded-lg h-32 bg-gray-200 flex items-center justify-center text-gray-500">No Image</div>}
+            <h3 className={`font-semibold mb-2 ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>Visitor Preview:</h3>
+            {visitorPhoto ? <img src={visitorPhoto} alt="Visitor" className={`rounded-lg border ${isDark ? 'border-slate-700' : ''}`} /> : <div className={`border rounded-lg h-32 flex items-center justify-center ${isDark ? 'bg-slate-700 text-slate-300 border-slate-700' : 'bg-gray-200 text-gray-500'}`}>No Image</div>}
           </div>
           <div>
-            <h3 className="font-semibold text-gray-600 mb-2">ID Preview:</h3>
-            {idPhoto ? <img src={idPhoto} alt="ID Card" className="rounded-lg border" /> : <div className="border rounded-lg h-32 bg-gray-200 flex items-center justify-center text-gray-500">No Image</div>}
+            <h3 className={`font-semibold mb-2 ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>ID Preview:</h3>
+            {idPhoto ? <img src={idPhoto} alt="ID Card" className={`rounded-lg border ${isDark ? 'border-slate-700' : ''}`} /> : <div className={`border rounded-lg h-32 flex items-center justify-center ${isDark ? 'bg-slate-700 text-slate-300 border-slate-700' : 'bg-gray-200 text-gray-500'}`}>No Image</div>}
           </div>
         </div>
       </div>

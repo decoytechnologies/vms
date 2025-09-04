@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import apiClient from '../services/api.js';
-import { Download, UserPlus, Trash2, Edit, X, Search, Copy, Check } from 'lucide-react';
+import { Download, UserPlus, Trash2, Edit, X, Search, Copy, Check, Sun, Moon, Upload } from 'lucide-react';
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 
@@ -9,6 +9,14 @@ const AdminDashboard = ({ onLogout }) => {
   const [activeTab, setActiveTab] = useState('log');
   const [selectedVisit, setSelectedVisit] = useState(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [isDark, setIsDark] = useState(true);
+  const containerBg = isDark ? 'bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-900';
+  const cardBg = isDark ? 'bg-slate-800' : 'bg-white';
+  const borderColor = isDark ? 'border-slate-700' : 'border-slate-200';
+  const tableHeadBg = isDark ? 'bg-slate-700' : 'bg-gray-200';
+  const sidebarBg = isDark ? 'bg-gradient-to-b from-slate-800 to-slate-900 text-slate-100' : 'bg-white text-slate-900 border-r border-slate-200';
+  const tabActive = isDark ? 'bg-slate-700 text-slate-100 ring-1 ring-indigo-500/30' : 'bg-slate-200 text-slate-900 ring-1 ring-indigo-500/20';
+  const tabHover = isDark ? 'hover:bg-slate-700/60 hover:text-slate-100' : 'hover:bg-slate-100 hover:text-slate-900';
 
   const openVisitorDetails = (visit) => {
     setSelectedVisit(visit);
@@ -18,37 +26,55 @@ const AdminDashboard = ({ onLogout }) => {
   const renderTabContent = () => {
     switch (activeTab) {
       case 'reports':
-        return <ReportsTab />;
+        return <ReportsTab isDark={isDark} />;
       case 'guards':
-        return <GuardManagementTab />;
+        return <GuardManagementTab isDark={isDark} />;
+      case 'employees':
+        return <EmployeesTab isDark={isDark} />;
       case 'log':
       default:
-        return <VisitorLogTab onOpenDetails={openVisitorDetails} />;
+        return <VisitorLogTab onOpenDetails={openVisitorDetails} isDark={isDark} />;
     }
   };
 
+  const adminName = typeof window !== 'undefined' ? localStorage.getItem('adminName') : null;
+
   return (
-    <div className="bg-slate-100 min-h-screen font-sans">
-      <header className="bg-white shadow-sm sticky top-0 z-20">
-        <nav className="container mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center space-x-4">
-            <img src="/logo.png" alt="Logo" className="h-10 w-auto" />
-            <h1 className="text-2xl font-bold text-gray-800">Admin Portal</h1>
-          </div>
-          <button onClick={onLogout} className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition">Logout</button>
-        </nav>
-        <div className="container mx-auto px-6 border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8">
-            <TabButton title="Visitor Log" isActive={activeTab === 'log'} onClick={() => setActiveTab('log')} />
-            <TabButton title="Reports" isActive={activeTab === 'reports'} onClick={() => setActiveTab('reports')} />
-            <TabButton title="Guard Management" isActive={activeTab === 'guards'} onClick={() => setActiveTab('guards')} />
-          </nav>
+    <div className={`${containerBg} min-h-screen font-sans`}>
+      <div className="flex min-h-screen">
+        {/* Sidebar */}
+        <aside className={`w-64 p-6 sticky top-0 h-screen shadow-xl flex flex-col ${sidebarBg}`}>
+        <div className="mb-8 flex items-center justify-center">
+          <img src={isDark ? '/darkthemelogo.png' : '/logo.png'} alt="Logo" className="h-16 w-auto" />
         </div>
-      </header>
-      
-      <main className="container mx-auto px-6 py-8">
-        {renderTabContent()}
-      </main>
+          <nav className="space-y-2">
+            <button onClick={() => setActiveTab('log')} className={`w-full text-left px-4 py-2 rounded-lg transition duration-200 ${activeTab === 'log' ? tabActive : tabHover}`}>Visitor Log</button>
+            <button onClick={() => setActiveTab('reports')} className={`w-full text-left px-4 py-2 rounded-lg transition duration-200 ${activeTab === 'reports' ? tabActive : tabHover}`}>Reports</button>
+            <button onClick={() => setActiveTab('guards')} className={`w-full text-left px-4 py-2 rounded-lg transition duration-200 ${activeTab === 'guards' ? tabActive : tabHover}`}>Guard Management</button>
+            <button onClick={() => setActiveTab('employees')} className={`w-full text-left px-4 py-2 rounded-lg transition duration-200 ${activeTab === 'employees' ? tabActive : tabHover}`}>Employees</button>
+          </nav>
+          <div className="mt-auto pt-4">
+            <button onClick={onLogout} className="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition">Logout</button>
+          </div>
+        </aside>
+        {/* Content */}
+        <main className="flex-1 p-8 space-y-8">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <h1 className="text-2xl font-bold">Admin Portal</h1>
+            </div>
+            <div className="flex items-center space-x-3">
+              <button onClick={() => setIsDark(!isDark)} className={`${isDark ? 'text-slate-300 hover:text-white hover:bg-slate-700/60' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'} p-2 rounded-full transition`} aria-label="Toggle theme">
+                {isDark ? <Sun size={18} /> : <Moon size={18} />}
+              </button>
+              <span className="text-sm opacity-80 truncate">{adminName || 'Admin'}</span>
+            </div>
+          </div>
+          <div>
+            {renderTabContent()}
+          </div>
+        </main>
+      </div>
 
       {isDetailsModalOpen && <VisitorDetailsModal visit={selectedVisit} onClose={() => setIsDetailsModalOpen(false)} />}
     </div>
@@ -62,18 +88,18 @@ const TabButton = ({ title, isActive, onClick }) => (
   </button>
 );
 
-const Card = ({ children, className }) => (
-  <div className={`bg-white p-6 rounded-lg shadow-lg ${className}`}>
+const Card = ({ children, className, isDark }) => (
+  <div className={`${isDark ? 'bg-slate-800' : 'bg-white'} p-6 rounded-lg shadow-lg border ${isDark ? 'border-slate-700' : 'border-slate-200'} ${className}`}>
     {children}
   </div>
 );
 
-const CardTitle = ({ children }) => (
-  <h2 className="text-xl font-semibold text-gray-700 mb-4">{children}</h2>
+const CardTitle = ({ children, isDark }) => (
+  <h2 className={`text-xl font-semibold mb-4 ${isDark ? 'text-slate-100' : 'text-gray-700'}`}>{children}</h2>
 );
 
 // --- Visitor Log Tab Component ---
-const VisitorLogTab = ({ onOpenDetails }) => {
+const VisitorLogTab = ({ onOpenDetails, isDark }) => {
   const [visits, setVisits] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isDownloadModalOpen, setDownloadModalOpen] = useState(false);
@@ -84,17 +110,17 @@ const VisitorLogTab = ({ onOpenDetails }) => {
 
   return (
     <>
-      <Card>
+      <Card isDark={isDark}>
         <div className="flex flex-wrap justify-between items-center mb-4 gap-4">
-          <CardTitle>Full Visitor Log</CardTitle>
+          <CardTitle isDark={isDark}>Full Visitor Log</CardTitle>
           <button onClick={() => setDownloadModalOpen(true)} className="flex items-center space-x-2 bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg transition-transform transform hover:scale-105">
             <Download size={18} />
             <span>Download Report</span>
           </button>
         </div>
         <div className="overflow-x-auto">
-          <table className="min-w-full bg-white">
-            <thead className="bg-gray-200">
+          <table className={`min-w-full ${isDark ? 'bg-slate-800' : 'bg-white'}`}>
+            <thead className={`${isDark ? 'bg-slate-700' : 'bg-gray-200'}`}>
               <tr>
                 <th className="text-left py-3 px-4 uppercase font-semibold text-sm">Visitor</th>
                 <th className="text-left py-3 px-4 uppercase font-semibold text-sm">Host Employee</th>
@@ -104,7 +130,7 @@ const VisitorLogTab = ({ onOpenDetails }) => {
                 <th className="text-left py-3 px-4 uppercase font-semibold text-sm">Status</th>
               </tr>
             </thead>
-            <tbody className="text-gray-700">
+            <tbody className={`${isDark ? 'text-slate-100' : 'text-gray-700'}`}>
               {loading ? (
                 <tr><td colSpan="6" className="text-center py-4">Loading...</td></tr>
               ) : visits.map(visit => {
@@ -116,16 +142,16 @@ const VisitorLogTab = ({ onOpenDetails }) => {
                   lengthOfStay = `${hours}h ${minutes}m`;
                 }
                 return (
-                  <tr key={visit.id} className="border-b hover:bg-gray-50">
+                  <tr key={visit.id} className={`border-b ${isDark ? 'border-slate-700 hover:bg-slate-700/40' : 'hover:bg-gray-50'}`}>
                     <td className="text-left py-3 px-4">
-                      <button onClick={() => onOpenDetails(visit)} className="text-blue-600 hover:underline font-semibold">{visit.Visitor?.name || 'N/A'}</button>
+                      <button onClick={() => onOpenDetails(visit)} className={`${isDark ? 'text-indigo-400' : 'text-blue-600'} hover:underline font-semibold`}>{visit.Visitor?.name || 'N/A'}</button>
                     </td>
                     <td className="text-left py-3 px-4">{visit.Employee?.name || 'N/A'}</td>
                     <td className="text-left py-3 px-4">{new Date(visit.checkInTimestamp).toLocaleString()}</td>
                     <td className="text-left py-3 px-4">{visit.actualCheckOutTimestamp ? new Date(visit.actualCheckOutTimestamp).toLocaleString() : 'Still Inside'}</td>
                     <td className="text-left py-3 px-4">{lengthOfStay}</td>
                     <td className="text-left py-3 px-4">
-                      <span className={`py-1 px-3 rounded-full text-xs font-medium ${ visit.status === 'CHECKED_IN' ? 'bg-green-200 text-green-800' : visit.status === 'PENDING_APPROVAL' ? 'bg-yellow-200 text-yellow-800' : visit.status === 'CHECKED_OUT' ? 'bg-gray-200 text-gray-800' : 'bg-red-200 text-red-800'}`}>
+                      <span className={`py-1 px-3 rounded-full text-xs font-medium ${ visit.status === 'CHECKED_IN' ? (isDark ? 'bg-green-700 text-green-100' : 'bg-green-200 text-green-800') : visit.status === 'PENDING_APPROVAL' ? (isDark ? 'bg-yellow-700 text-yellow-100' : 'bg-yellow-200 text-yellow-800') : visit.status === 'CHECKED_OUT' ? (isDark ? 'bg-slate-600 text-slate-100' : 'bg-gray-200 text-gray-800') : (isDark ? 'bg-red-700 text-red-100' : 'bg-red-200 text-red-800') }`}>
                         {visit.status.replace(/_/g, ' ')}
                       </span>
                     </td>
@@ -142,7 +168,7 @@ const VisitorLogTab = ({ onOpenDetails }) => {
 };
 
 // --- Reports Tab Component ---
-const ReportsTab = () => {
+const ReportsTab = ({ isDark }) => {
   const [endOfDayReport, setEndOfDayReport] = useState(null);
   const [historyReport, setHistoryReport] = useState(null);
   const [searchEmail, setSearchEmail] = useState('');
@@ -199,9 +225,9 @@ const ReportsTab = () => {
 
   return (
     <div className="space-y-8">
-      <Card>
+      <Card isDark={isDark}>
         <div className="flex justify-between items-center mb-4">
-          <CardTitle>End-of-Day Status</CardTitle>
+          <CardTitle isDark={isDark}>End-of-Day Status</CardTitle>
           <button onClick={handleShowReport} disabled={reportLoading} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg disabled:bg-blue-400">
             {reportLoading ? 'Generating...' : 'Generate Report'}
           </button>
@@ -213,19 +239,19 @@ const ReportsTab = () => {
           </div>
         )}
       </Card>
-      <Card>
-        <CardTitle>Visitor History by Employee</CardTitle>
+      <Card isDark={isDark}>
+        <CardTitle isDark={isDark}>Visitor History by Employee</CardTitle>
         <div className="relative">
           <div className="flex items-center space-x-4">
-            <input type="email" value={searchEmail} onChange={(e) => setSearchEmail(e.target.value)} placeholder="Enter host employee's name or email" className="w-full px-4 py-2 border border-gray-300 rounded-lg"/>
+            <input type="email" value={searchEmail} onChange={(e) => setSearchEmail(e.target.value)} placeholder="Enter host employee's name or email" className={`w-full px-4 py-2 border rounded-lg ${isDark ? 'border-slate-700 bg-slate-900' : 'border-gray-300'}`}/>
             <button onClick={() => handleHistorySearch(searchEmail)} disabled={historyLoading} className="bg-blue-600 hover:bg-blue-700 text-white font-bold p-2.5 rounded-lg disabled:bg-blue-400">
                 {historyLoading ? '...' : <Search size={20} />}
             </button>
           </div>
           {suggestions.length > 0 && (
-            <ul className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg">
+            <ul className={`absolute z-10 w-full mt-1 border rounded-lg shadow-lg ${isDark ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white'}`}>
               {suggestions.map(emp => (
-                <li key={emp.id} onMouseDown={() => handleHistorySearch(emp.email)} className="px-4 py-2 cursor-pointer hover:bg-gray-100">
+                <li key={emp.id} onMouseDown={() => handleHistorySearch(emp.email)} className={`px-4 py-2 cursor-pointer ${isDark ? 'hover:bg-slate-700' : 'hover:bg-gray-100'}`}>
                     {emp.name} <span className="text-gray-500">({emp.email})</span>
                 </li>
               ))}
@@ -237,7 +263,7 @@ const ReportsTab = () => {
             <h3 className="text-lg font-semibold">History for: {historyReport.employee.name}</h3>
             <ul className="mt-2 space-y-2">
                 {historyReport.visits.length > 0 ? historyReport.visits.map(visit => (
-                    <li key={visit.id} className="p-2 bg-gray-50 rounded text-sm">
+                    <li key={visit.id} className={`p-2 rounded text-sm ${isDark ? 'bg-slate-700' : 'bg-gray-50'}`}>
                         <strong>{visit.Visitor.name}</strong> on {new Date(visit.checkInTimestamp).toLocaleDateString()}
                     </li>
                 )) : <p>No visits found.</p>}
@@ -251,7 +277,7 @@ const ReportsTab = () => {
 };
 
 // --- Guard Management Tab Component ---
-const GuardManagementTab = () => {
+const GuardManagementTab = ({ isDark }) => {
   const [guards, setGuards] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -296,33 +322,51 @@ const GuardManagementTab = () => {
     }
   };
 
+  const handleToggleActive = async (guard) => {
+    try {
+      await apiClient.put(`/admin/guards/${guard.id}`, { isActive: !guard.isActive });
+      fetchGuards();
+    } catch (error) {
+      alert('Failed to update guard status.');
+    }
+  };
+
   return (
     <>
-      <Card>
+      <Card isDark={isDark}>
         <div className="flex justify-between items-center mb-4">
-          <CardTitle>Manage Guard Accounts</CardTitle>
+          <CardTitle isDark={isDark}>Manage Guard Accounts</CardTitle>
           <button onClick={() => { setEditingGuard(null); setIsModalOpen(true); }} className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">
             <UserPlus size={18} /><span>Add New Guard</span>
           </button>
         </div>
         <div className="overflow-x-auto">
-          <table className="min-w-full bg-white">
-            <thead className="bg-gray-200">
+          <table className={`min-w-full ${isDark ? 'bg-slate-800' : 'bg-white'}`}>
+            <thead className={`${isDark ? 'bg-slate-700' : 'bg-gray-200'}`}>
               <tr>
                 <th className="text-left py-3 px-4 uppercase font-semibold text-sm">Name</th>
                 <th className="text-left py-3 px-4 uppercase font-semibold text-sm">Email</th>
                 <th className="text-left py-3 px-4 uppercase font-semibold text-sm">Phone</th>
+                <th className="text-left py-3 px-4 uppercase font-semibold text-sm">Active</th>
                 <th className="text-left py-3 px-4 uppercase font-semibold text-sm">Actions</th>
               </tr>
             </thead>
-            <tbody className="text-gray-700">
+            <tbody className={`${isDark ? 'text-slate-100' : 'text-gray-700'}`}>
               {loading ? (
-                <tr><td colSpan="4" className="text-center py-4">Loading...</td></tr>
+                <tr><td colSpan="5" className="text-center py-4">Loading...</td></tr>
               ) : guards.map(guard => (
-                <tr key={guard.id} className="border-b hover:bg-gray-50">
+                <tr key={guard.id} className={`border-b ${isDark ? 'border-slate-700 hover:bg-slate-700/40' : 'hover:bg-gray-50'}`}>
                   <td className="py-3 px-4">{guard.name}</td>
                   <td className="py-3 px-4">{guard.email || 'N/A'}</td>
                   <td className="py-3 px-4">{guard.phone || 'N/A'}</td>
+                  <td className="py-3 px-4">
+                    <button
+                      onClick={() => handleToggleActive(guard)}
+                      className={`${guard.isActive ? 'bg-green-600 hover:bg-green-500' : 'bg-slate-500 hover:bg-slate-400'} text-white text-xs font-semibold px-3 py-1 rounded-full transition`}
+                    >
+                      {guard.isActive ? 'Active' : 'Inactive'}
+                    </button>
+                  </td>
                   <td className="py-3 px-4 flex space-x-4">
                     <button onClick={() => { setEditingGuard(guard); setIsModalOpen(true); }} className="text-blue-500 hover:text-blue-700"><Edit size={18} /></button>
                     <button onClick={() => handleDelete(guard.id)} className="text-red-500 hover:text-red-700"><Trash2 size={18} /></button>
@@ -340,7 +384,7 @@ const GuardManagementTab = () => {
 
 
 // --- Modal Components ---
-const GuardModal = ({ guard, onSave, onClose }) => {
+const GuardModal = ({ guard, onSave, onClose, isDark = true }) => {
   const [formData, setFormData] = useState({
     name: guard?.name || '',
     email: guard?.email || '',
@@ -363,19 +407,19 @@ const GuardModal = ({ guard, onSave, onClose }) => {
   };
   
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-30">
-      <div className="bg-white p-8 rounded-lg shadow-2xl w-full max-w-md">
+    <div className={`fixed inset-0 ${isDark ? 'bg-black/70' : 'bg-black/50'} flex items-center justify-center z-30 p-6`}>
+      <div className={`${isDark ? 'bg-slate-900 text-slate-100' : 'bg-white'} p-8 rounded-xl shadow-2xl w-full max-w-md border ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-2xl font-bold">{guard ? 'Edit Guard' : 'Add New Guard'}</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-800"><X size={24} /></button>
+          <button onClick={onClose} className={`${isDark ? 'text-slate-300 hover:text-white' : 'text-gray-500 hover:text-gray-800'}`}><X size={24} /></button>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <input type="text" placeholder="Name" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} required className="w-full px-4 py-2 border rounded-lg" />
-          <input type="email" placeholder="Email (Optional)" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="w-full px-4 py-2 border rounded-lg" />
-          <input type="tel" placeholder="10-Digit Phone (Optional)" value={formData.phone} onChange={handlePhoneChange} className="w-full px-4 py-2 border rounded-lg" />
-          <input type="password" placeholder={guard ? 'New PIN (Leave blank to keep same)' : 'PIN'} value={formData.pin} onChange={(e) => setFormData({...formData, pin: e.target.value})} required={!guard} className="w-full px-4 py-2 border rounded-lg" />
+          <input type="text" placeholder="Name" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} required className={`w-full px-4 py-2 border rounded-lg ${isDark ? 'border-slate-700 bg-slate-800' : ''}`} />
+          <input type="email" placeholder="Email (Optional)" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className={`w-full px-4 py-2 border rounded-lg ${isDark ? 'border-slate-700 bg-slate-800' : ''}`} />
+          <input type="tel" placeholder="10-Digit Phone (Optional)" value={formData.phone} onChange={handlePhoneChange} className={`w-full px-4 py-2 border rounded-lg ${isDark ? 'border-slate-700 bg-slate-800' : ''}`} />
+          <input type="password" placeholder={guard ? 'New PIN (Leave blank to keep same)' : 'PIN'} value={formData.pin} onChange={(e) => setFormData({...formData, pin: e.target.value})} required={!guard} className={`w-full px-4 py-2 border rounded-lg ${isDark ? 'border-slate-700 bg-slate-800' : ''}`} />
           <div className="flex justify-end space-x-4 pt-4">
-            <button type="button" onClick={onClose} className="py-2 px-4 bg-gray-200 hover:bg-gray-300 rounded-lg">Cancel</button>
+            <button type="button" onClick={onClose} className={`py-2 px-4 rounded-lg ${isDark ? 'bg-slate-700 hover:bg-slate-600' : 'bg-gray-200 hover:bg-gray-300'}`}>Cancel</button>
             <button type="submit" className="py-2 px-4 bg-blue-600 text-white hover:bg-blue-700 rounded-lg">Save Guard</button>
           </div>
         </form>
@@ -384,7 +428,7 @@ const GuardModal = ({ guard, onSave, onClose }) => {
   );
 };
 
-const VisitorDetailsModal = ({ visit, onClose }) => {
+const VisitorDetailsModal = ({ visit, onClose, isDark = true }) => {
   const [imageUrls, setImageUrls] = useState({ visitorPhotoUrl: null, idPhotoUrl: null });
   const [loading, setLoading] = useState(true);
   const [activeImageTab, setActiveImageTab] = useState('visitor');
@@ -430,26 +474,25 @@ const VisitorDetailsModal = ({ visit, onClose }) => {
   );
 
   return (
-    <div onClick={onClose} className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-30 p-4">
-      <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-lg shadow-2xl w-full max-w-5xl h-[80vh] flex flex-col">
-        <div className="flex justify-between items-center p-6 border-b">
-          <h3 className="text-2xl font-bold text-gray-800">Visit Details</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-800"><X size={24} /></button>
+    <div onClick={onClose} className={`fixed inset-0 ${isDark ? 'bg-black/70' : 'bg-black/50'} flex items-center justify-center z-30 p-6`}>
+      <div onClick={(e) => e.stopPropagation()} className={`${isDark ? 'bg-slate-900 text-slate-100' : 'bg-white'} rounded-xl shadow-2xl w-full max-w-5xl h-[80vh] flex flex-col border ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>
+        <div className={`flex justify-between items-center p-6 border-b ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>
+          <h3 className={`text-2xl font-bold ${isDark ? 'text-slate-100' : 'text-gray-800'}`}>Visit Details</h3>
+          <button onClick={onClose} className={`${isDark ? 'text-slate-300 hover:text-white' : 'text-gray-500 hover:text-gray-800'}`}><X size={24} /></button>
         </div>
-        
         <div className="flex-grow grid grid-cols-1 md:grid-cols-3 gap-6 p-6 overflow-y-auto">
           {/* Details Column */}
           <div className="md:col-span-1 space-y-4">
-            <h4 className="text-lg font-bold border-b pb-2">Visitor Information</h4>
+            <h4 className={`text-lg font-bold border-b pb-2 ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>Visitor Information</h4>
             <DetailItem label="Name" value={visit.Visitor?.name} />
             <DetailItem label="Email" value={visit.Visitor?.email} field="visitorEmail" isCopyable={true} />
             <DetailItem label="Phone" value={visit.Visitor?.phone} />
             
-            <h4 className="text-lg font-bold border-b pb-2 pt-4">Host Information</h4>
+            <h4 className={`text-lg font-bold border-b pb-2 pt-4 ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>Host Information</h4>
             <DetailItem label="Host Name" value={visit.Employee?.name} />
             <DetailItem label="Host Email" value={visit.Employee?.email} field="hostEmail" isCopyable={true} />
 
-            <h4 className="text-lg font-bold border-b pb-2 pt-4">Visit Timeline</h4>
+            <h4 className={`text-lg font-bold border-b pb-2 pt-4 ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>Visit Timeline</h4>
             <DetailItem label="Check-in Time" value={new Date(visit.checkInTimestamp).toLocaleString()} />
             <DetailItem label="Check-out Time" value={visit.actualCheckOutTimestamp ? new Date(visit.actualCheckOutTimestamp).toLocaleString() : 'N/A'} />
             <DetailItem label="Length of Stay" value={lengthOfStay} />
@@ -458,13 +501,13 @@ const VisitorDetailsModal = ({ visit, onClose }) => {
 
           {/* Image Column */}
           <div className="md:col-span-2 flex flex-col">
-            <div className="border-b">
+            <div className={`border-b ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>
               <nav className="-mb-px flex space-x-6">
                 <TabButton title="Visitor Photo" isActive={activeImageTab === 'visitor'} onClick={() => setActiveImageTab('visitor')} />
                 <TabButton title="ID Card Photo" isActive={activeImageTab === 'id'} onClick={() => setActiveImageTab('id')} />
               </nav>
             </div>
-            <div className="flex-grow mt-4 flex items-center justify-center bg-gray-100 rounded-lg overflow-hidden">
+            <div className={`flex-grow mt-4 flex items-center justify-center rounded-lg overflow-hidden ${isDark ? 'bg-slate-800' : 'bg-gray-100'}`}>
               {loading ? (
                 <p>Loading image...</p>
               ) : (
@@ -576,4 +619,156 @@ const DownloadReportModal = ({ onClose }) => {
 };
 
 export default AdminDashboard;
+
+// --- Employees Tab Component ---
+const EmployeesTab = ({ isDark }) => {
+  const [employees, setEmployees] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState({ id: null, name: '', email: '', phone: '', department: '' });
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadResult, setUploadResult] = useState(null);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+
+  const fetchEmployees = async () => {
+    setLoading(true);
+    try {
+      const res = await apiClient.get('/admin/employees');
+      setEmployees(res.data);
+    } catch (e) {
+      alert('Failed to load employees');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchEmployees(); }, []);
+
+  const resetForm = () => setForm({ id: null, name: '', email: '', phone: '', department: '' });
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    try {
+      if (form.id) {
+        await apiClient.put(`/admin/employees/${form.id}`, { name: form.name, email: form.email, phone: form.phone, department: form.department || null });
+      } else {
+        await apiClient.post('/admin/employees', { name: form.name, email: form.email, phone: form.phone, department: form.department || null });
+      }
+      resetForm();
+      fetchEmployees();
+    } catch (e) {
+      alert(e.response?.data?.message || 'Failed to save employee');
+    }
+  };
+
+  const handleEdit = (emp) => setForm({ id: emp.id, name: emp.name, email: emp.email, phone: emp.phone || '', department: emp.department || '' });
+  const handleDelete = async (id) => {
+    if (!window.confirm('Delete this employee?')) return;
+    try { await apiClient.delete(`/admin/employees/${id}`); fetchEmployees(); } catch { alert('Failed to delete'); }
+  };
+
+  const downloadTemplate = async () => {
+    const res = await apiClient.get('/admin/employees/template', { responseType: 'blob' });
+    const url = window.URL.createObjectURL(new Blob([res.data]));
+    const link = document.createElement('a');
+    link.href = url; link.setAttribute('download', 'employee-template.csv'); document.body.appendChild(link); link.click(); link.remove();
+  };
+
+  const handleUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await apiClient.post('/admin/employees/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+      setUploadResult(res.data);
+      setShowUploadModal(true);
+      fetchEmployees();
+    } catch (e) {
+      alert(e.response?.data?.message || 'Failed to upload CSV');
+    } finally {
+      setIsUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  return (
+    <div className="space-y-8">
+      <Card isDark={isDark}>
+        <div className="flex justify-between items-center mb-4">
+          <CardTitle isDark={isDark}>Employees</CardTitle>
+          <div className="flex items-center gap-3">
+            <button onClick={downloadTemplate} className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded-lg"><Download size={16} /> Template</button>
+            <label className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-4 rounded-lg cursor-pointer">
+              <Upload size={16} /> {isUploading ? 'Uploading...' : 'Upload CSV'}
+              <input type="file" accept=".csv" onChange={handleUpload} className="hidden" disabled={isUploading} />
+            </label>
+          </div>
+        </div>
+        <form onSubmit={handleSave} className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+          <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Name" required className={`px-3 py-2 border rounded ${isDark ? 'bg-slate-900 border-slate-700' : ''}`} />
+          <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="Email" required className={`px-3 py-2 border rounded ${isDark ? 'bg-slate-900 border-slate-700' : ''}`} />
+          <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/[^0-9]/g, '').slice(0, 10) })} placeholder="Phone (optional)" className={`px-3 py-2 border rounded ${isDark ? 'bg-slate-900 border-slate-700' : ''}`} />
+          <input value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} placeholder="Department (optional)" className={`px-3 py-2 border rounded ${isDark ? 'bg-slate-900 border-slate-700' : ''}`} />
+          <div className="flex items-center gap-2">
+            <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg w-full">{form.id ? 'Update' : 'Add'}</button>
+            {form.id && <button type="button" onClick={resetForm} className={`py-2 px-4 rounded-lg ${isDark ? 'bg-slate-700 hover:bg-slate-600' : 'bg-gray-200 hover:bg-gray-300'}`}>Clear</button>}
+          </div>
+        </form>
+        <div className="overflow-x-auto">
+          <table className={`min-w-full ${isDark ? 'bg-slate-800' : 'bg-white'}`}>
+            <thead className={`${isDark ? 'bg-slate-700' : 'bg-gray-200'}`}>
+              <tr>
+                <th className="text-left py-3 px-4 uppercase font-semibold text-sm">Name</th>
+                <th className="text-left py-3 px-4 uppercase font-semibold text-sm">Email</th>
+                <th className="text-left py-3 px-4 uppercase font-semibold text-sm">Phone</th>
+                <th className="text-left py-3 px-4 uppercase font-semibold text-sm">Department</th>
+                <th className="text-left py-3 px-4 uppercase font-semibold text-sm">Actions</th>
+              </tr>
+            </thead>
+            <tbody className={`${isDark ? 'text-slate-100' : 'text-gray-700'}`}>
+              {loading ? (
+                <tr><td colSpan="5" className="text-center py-4">Loading...</td></tr>
+              ) : employees.map(emp => (
+                <tr key={emp.id} className={`border-b ${isDark ? 'border-slate-700 hover:bg-slate-700/40' : 'hover:bg-gray-50'}`}>
+                  <td className="py-3 px-4">{emp.name}</td>
+                  <td className="py-3 px-4">{emp.email}</td>
+                  <td className="py-3 px-4">{emp.phone || '—'}</td>
+                  <td className="py-3 px-4">{emp.department || '—'}</td>
+                  <td className="py-3 px-4 flex space-x-4">
+                    <button onClick={() => handleEdit(emp)} className="text-blue-500 hover:text-blue-700"><Edit size={18} /></button>
+                    <button onClick={() => handleDelete(emp.id)} className="text-red-500 hover:text-red-700"><Trash2 size={18} /></button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      {showUploadModal && uploadResult && (
+        <div className={`fixed inset-0 ${isDark ? 'bg-black/70' : 'bg-black/50'} flex items-center justify-center z-30 p-6`}>
+          <div className={`${isDark ? 'bg-slate-900 text-slate-100' : 'bg-white'} p-6 rounded-xl shadow-2xl w-full max-w-md border ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold">Upload Summary</h3>
+              <button onClick={() => setShowUploadModal(false)} className={`${isDark ? 'text-slate-300 hover:text-white' : 'text-gray-500 hover:text-gray-800'}`}><X size={20} /></button>
+            </div>
+            <div className="space-y-2">
+              <p>Inserted: <strong>{uploadResult.inserted}</strong></p>
+              <p>Duplicates: <strong>{uploadResult.duplicates}</strong></p>
+              {uploadResult.duplicateEmails?.length > 0 && (
+                <div>
+                  <p className="font-semibold mb-1">Duplicate Emails:</p>
+                  <ul className="list-disc ml-5 text-sm opacity-80">
+                    {uploadResult.duplicateEmails.map(email => <li key={email}>{email}</li>)}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 

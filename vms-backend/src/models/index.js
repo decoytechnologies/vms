@@ -7,6 +7,7 @@ const sequelize = new Sequelize(dbConfig.url, { dialect: dbConfig.dialect, loggi
 const db = {};
 
 db.Tenant = require('./tenant.model')(sequelize, DataTypes);
+db.SuperAdmin = require('./superadmin.model')(sequelize, DataTypes);
 db.Admin = require('./admin.model')(sequelize, DataTypes);
 db.Guard = require('./guard.model')(sequelize, DataTypes);
 db.Employee = require('./employee.model')(sequelize, DataTypes);

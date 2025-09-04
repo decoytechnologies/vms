@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import AdminDashboard from './pages/AdminDashboard';
 import LoginPage from './pages/LoginPage';
 import GuardLoginPage from './pages/GuardLoginPage';
+import SuperAdminLoginPage from './pages/SuperAdminLoginPage';
+import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import GuardView from './pages/GuardView';
 import './index.css';
 
@@ -34,6 +36,9 @@ const RoleSelector = ({ onSelect }) => (
           <button onClick={() => onSelect('guard')} className="w-full text-lg bg-gray-700 text-white font-bold py-4 px-6 rounded-lg shadow-lg hover:bg-gray-800 transition-transform transform hover:-translate-y-1">
             I am a Guard
           </button>
+          <button onClick={() => onSelect('superadmin')} className="w-full text-lg bg-emerald-600 text-white font-bold py-4 px-6 rounded-lg shadow-lg hover:bg-emerald-700 transition-transform transform hover:-translate-y-1">
+            I am a Super Admin
+          </button>
         </div>
       </div>
     </div>
@@ -44,6 +49,7 @@ function App() {
   const [adminToken, setAdminToken] = useState(localStorage.getItem('adminToken'));
   const [guardToken, setGuardToken] = useState(localStorage.getItem('guardToken'));
   const [role, setRole] = useState(null);
+  const [superadminToken, setSuperadminToken] = useState(localStorage.getItem('superadminToken'));
 
   const handleAdminLogin = (token) => {
     localStorage.setItem('adminToken', token);
@@ -58,16 +64,20 @@ function App() {
   const handleLogout = () => {
     localStorage.removeItem('adminToken');
     localStorage.removeItem('guardToken');
+    localStorage.removeItem('superadminToken');
     setAdminToken(null);
     setGuardToken(null);
+    setSuperadminToken(null);
     setRole(null);
   };
 
+  if (superadminToken) return <SuperAdminDashboard onLogout={handleLogout} />;
   if (adminToken) return <AdminDashboard onLogout={handleLogout} />;
   if (guardToken) return <GuardView onLogout={handleLogout} />;
   
   if (role === 'admin') return <LoginPage onLoginSuccess={handleAdminLogin} />;
   if (role === 'guard') return <GuardLoginPage onLoginSuccess={handleGuardLogin} />;
+  if (role === 'superadmin') return <SuperAdminLoginPage onLoginSuccess={(token) => { localStorage.setItem('superadminToken', token); setSuperadminToken(token); }} />;
 
   return <RoleSelector onSelect={setRole} />;
 }

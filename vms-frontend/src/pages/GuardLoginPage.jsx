@@ -1,8 +1,27 @@
 import React, { useState } from 'react';
-import apiClient from '../services/api';
+import apiClient, { setTenantSubdomain } from '../services/api';
 
 const GuardLoginPage = ({ onLoginSuccess }) => {
-  const [name, setName] = useState('');
+  const [subdomain, setSubdomain] = useState('');
+  const [tenants, setTenants] = useState([]);
+  const [loadingTenants, setLoadingTenants] = useState(true);
+
+  React.useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await apiClient.get('/public/tenants');
+        if (mounted) setTenants(res.data || []);
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to load tenants', err);
+      } finally {
+        if (mounted) setLoadingTenants(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+  const [identifier, setIdentifier] = useState('');
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -12,10 +31,17 @@ const GuardLoginPage = ({ onLoginSuccess }) => {
     setError('');
     setLoading(true);
     try {
-      const response = await apiClient.post('/auth/guard/login', { name, pin });
+      if (!subdomain) throw new Error('Please enter tenant subdomain');
+      setTenantSubdomain(subdomain);
+      const response = await apiClient.post('/auth/guard/login', { identifier, pin });
+      if (response.data?.guard?.name) {
+        localStorage.setItem('guardName', response.data.guard.name);
+      }
       onLoginSuccess(response.data.token);
     } catch (err) {
-      setError(err.response?.data?.message || 'Login failed.');
+      // eslint-disable-next-line no-console
+      console.error('Guard login error:', err);
+      setError(err.response?.data?.message || err.message || 'Login failed.');
     } finally {
       setLoading(false);
     }
@@ -29,11 +55,15 @@ const GuardLoginPage = ({ onLoginSuccess }) => {
             <h2 className="text-2xl font-bold text-gray-800">Guard Login</h2>
         </div>
         <form onSubmit={handleSubmit} className="space-y-6">
+          <select value={subdomain} onChange={(e) => setSubdomain(e.target.value)} required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="" disabled>{loadingTenants ? 'Loading tenants...' : 'Select Tenant'}</option>
+            {tenants.map(t => <option key={t.id} value={t.subdomain}>{t.name} ({t.subdomain})</option>)}
+          </select>
           <input
             type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Guard Name"
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
+            placeholder="Name or Email or Phone"
             required
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />

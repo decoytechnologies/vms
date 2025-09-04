@@ -1,11 +1,9 @@
 const { Op } = require('sequelize');
 const { Visitor, Visit, Employee, sequelize } = require('../../models');
-const notificationService = require('../services/notification.service');
 const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
 exports.checkIn = async (req, res) => {
-  // This function remains the same
   const { name, email, phone, employeeEmail } = req.body;
   const { tenant, user: guard } = req;
   if (!name || !email || !phone || !employeeEmail) return res.status(400).json({ message: 'Missing required visitor information.' });
@@ -20,7 +18,6 @@ exports.checkIn = async (req, res) => {
       await t.rollback();
       return res.status(404).json({ message: `Host employee with email ${employeeEmail} not found.` });
     }
-    // Bypassing notifications for local testing
     const approvalStatus = 'CHECKED_IN';
     const approvalMethod = 'AUTO_APPROVED';
     const newVisit = await Visit.create({ tenantId: tenant.id, visitorId: visitor.id, employeeId: hostEmployee.id, checkInGuardId: guard.id, status: approvalStatus, visitType: 'VISITOR', visitorPhotoUrl, idCardPhotoUrl, approvalMethod }, { transaction: t });
@@ -34,10 +31,16 @@ exports.checkIn = async (req, res) => {
 };
 
 exports.getActiveVisits = async (req, res) => {
-  // This function remains the same
   const { tenantId } = req.user;
   try {
-    const activeVisits = await Visit.findAll({ where: { tenantId, status: 'CHECKED_IN' }, include: [{ model: Visitor, attributes: ['name'] }], order: [['checkInTimestamp', 'ASC']] });
+    const activeVisits = await Visit.findAll({
+      where: { tenantId, status: 'CHECKED_IN' },
+      include: [
+        { model: Visitor, attributes: ['name'] },
+        { model: Employee, attributes: ['name', 'email'], as: 'Employee' }
+      ],
+      order: [['checkInTimestamp', 'ASC']]
+    });
     res.status(200).json(activeVisits);
   } catch (error) {
     res.status(500).json({ message: 'Failed to fetch active visitors.' });
@@ -61,9 +64,6 @@ exports.checkOut = async (req, res) => {
   }
 };
 
-// --- NEW FUNCTION ---
-// Securely fetches full visit details for a guard, including image URLs and masked phone.
-// --- UPDATED FUNCTION ---
 exports.getVisitDetailsForGuard = async (req, res) => {
   const { visitId } = req.params;
   const { tenantId } = req.user;

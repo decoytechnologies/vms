@@ -1,6 +1,9 @@
 node_modules/
 .next/
-.env*
 .DS_Store
 coverage/
 out/
+.env
+*.env
+.env.local
+.env.production

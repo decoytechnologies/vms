@@ -1,6 +1,7 @@
 const { Op } = require('sequelize');
 const { Guard, Visit, Visitor, Employee } = require('../../models');
 const { Parser } = require('json2csv');
+const csvParse = require('csv-parse/sync');
 const PDFDocument = require('pdfkit');
 const path = require('path');
 const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
@@ -22,6 +23,7 @@ exports.createGuard = async (req, res) => {
   const { name, email, phone, pin } = req.body;
   const { tenantId } = req.user;
   if (!name || !pin) return res.status(400).json({ message: 'Guard name and PIN are required.' });
+  if (!/^[0-9]{4,6}$/.test(String(pin))) return res.status(400).json({ message: 'PIN must be 4-6 digits.' });
   try {
     const newGuard = await Guard.create({ name, email, phone, pinHash: pin, tenantId, isActive: true });
     res.status(201).json({ 
@@ -38,7 +40,7 @@ exports.createGuard = async (req, res) => {
 
 exports.updateGuard = async (req, res) => {
   const { id } = req.params;
-  const { name, email, phone, pin } = req.body;
+  const { name, email, phone, pin, isActive } = req.body;
   const { tenantId } = req.user;
   try {
     const guard = await Guard.findOne({ where: { id, tenantId } });
@@ -47,10 +49,16 @@ exports.updateGuard = async (req, res) => {
     guard.name = name || guard.name;
     guard.email = email;
     guard.phone = phone;
-    if (pin) guard.pinHash = pin;
+    if (typeof isActive === 'boolean') {
+      guard.isActive = isActive;
+    }
+    if (pin) {
+      if (!/^[0-9]{4,6}$/.test(String(pin))) return res.status(400).json({ message: 'PIN must be 4-6 digits.' });
+      guard.pinHash = String(pin);
+    }
 
     await guard.save();
-    res.status(200).json({ id: guard.id, name: guard.name, email: guard.email, phone: guard.phone });
+    res.status(200).json({ id: guard.id, name: guard.name, email: guard.email, phone: guard.phone, isActive: guard.isActive });
   } catch (error) {
     res.status(500).json({ message: 'Failed to update guard.' });
   }
@@ -255,4 +263,102 @@ exports.downloadVisitorLog = async (req, res) => {
         console.error("Error generating report:", error);
         res.status(500).json({ message: 'Failed to generate report.' });
     }
+};
+
+// --- Employee Management (CRUD + CSV Upload/Template) ---
+
+exports.getEmployees = async (req, res) => {
+  const { tenantId } = req.user;
+  try {
+    const employees = await Employee.findAll({ where: { tenantId } });
+    res.status(200).json(employees);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch employees.' });
+  }
+};
+
+exports.createEmployee = async (req, res) => {
+  const { tenantId } = req.user;
+  const { name, email, phone, department } = req.body;
+  if (!name || !email) return res.status(400).json({ message: 'Name and email are required.' });
+  try {
+    const existing = await Employee.findOne({ where: { tenantId, email } });
+    if (existing) return res.status(409).json({ message: 'Employee with this email already exists.' });
+    const emp = await Employee.create({ tenantId, name, email, phone: phone || null, department: department || null });
+    res.status(201).json(emp);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to create employee.' });
+  }
+};
+
+exports.updateEmployee = async (req, res) => {
+  const { tenantId } = req.user;
+  const { id } = req.params;
+  const { name, email, phone, department } = req.body;
+  try {
+    const emp = await Employee.findOne({ where: { id, tenantId } });
+    if (!emp) return res.status(404).json({ message: 'Employee not found.' });
+    if (email && email !== emp.email) {
+      const dup = await Employee.findOne({ where: { tenantId, email } });
+      if (dup) return res.status(409).json({ message: 'Another employee with this email already exists.' });
+    }
+    emp.name = name ?? emp.name;
+    emp.email = email ?? emp.email;
+    emp.phone = phone ?? emp.phone;
+    emp.department = department ?? emp.department;
+    await emp.save();
+    res.status(200).json(emp);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to update employee.' });
+  }
+};
+
+exports.deleteEmployee = async (req, res) => {
+  const { tenantId } = req.user;
+  const { id } = req.params;
+  try {
+    const emp = await Employee.findOne({ where: { id, tenantId } });
+    if (!emp) return res.status(404).json({ message: 'Employee not found.' });
+    await emp.destroy();
+    res.status(204).send();
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to delete employee.' });
+  }
+};
+
+exports.downloadEmployeeTemplate = async (_req, res) => {
+  const fields = ['name', 'email', 'phone', 'department'];
+  const parser = new Parser({ fields });
+  const csv = parser.parse([]);
+  res.header('Content-Type', 'text/csv');
+  res.attachment('employee-template.csv');
+  res.send(csv);
+};
+
+exports.uploadEmployeesCsv = async (req, res) => {
+  const { tenantId } = req.user;
+  if (!req.file) return res.status(400).json({ message: 'CSV file is required.' });
+  try {
+    const content = req.file.buffer.toString('utf-8');
+    const records = csvParse.parse(content, { columns: true, skip_empty_lines: true, trim: true });
+    let inserted = 0;
+    let duplicates = 0;
+    const duplicateEmails = [];
+    const createdIds = [];
+    for (const row of records) {
+      const name = (row.name || '').trim();
+      const email = (row.email || '').trim();
+      const phone = (row.phone || '').trim() || null;
+      const department = (row.department || '').trim() || null;
+      if (!name || !email) continue; // skip invalid rows
+      const exists = await Employee.findOne({ where: { tenantId, email } });
+      if (exists) { duplicates++; duplicateEmails.push(email); continue; }
+      const emp = await Employee.create({ tenantId, name, email, phone, department });
+      createdIds.push(emp.id);
+      inserted++;
+    }
+    res.status(200).json({ inserted, duplicates, duplicateEmails, createdIds });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to process CSV upload.' });
+  }
 };

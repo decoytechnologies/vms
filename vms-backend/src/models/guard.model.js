@@ -1,5 +1,5 @@
 // src/models/guard.model.js
-const bcrypt = require('bcrypt');
+const { hashPassword, comparePassword } = require('../api/services/password.service');
 
 module.exports = (sequelize, DataTypes) => {
   const Guard = sequelize.define('Guard', {
@@ -12,16 +12,16 @@ module.exports = (sequelize, DataTypes) => {
   }, {
     hooks: {
       beforeCreate: async (guard) => {
-        if (guard.pinHash) guard.pinHash = await bcrypt.hash(guard.pinHash, 10);
+        if (guard.pinHash) guard.pinHash = await hashPassword(String(guard.pinHash));
       },
       beforeUpdate: async (guard) => {
         if (guard.pinHash && guard.changed('pinHash')) {
-          guard.pinHash = await bcrypt.hash(guard.pinHash, 10);
+          guard.pinHash = await hashPassword(String(guard.pinHash));
         }
       },
     }
   });
-  Guard.prototype.isValidPin = function(pin) { return bcrypt.compare(pin, this.pinHash); };
+  Guard.prototype.isValidPin = function(pin) { return comparePassword(String(pin), this.pinHash); };
   Guard.associate = (models) => {
     Guard.belongsTo(models.Tenant, {
       foreignKey: { name: 'tenantId', allowNull: false },

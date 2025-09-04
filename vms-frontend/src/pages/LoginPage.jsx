@@ -1,9 +1,27 @@
 import React, { useState } from 'react';
-import apiClient from '../services/api';
+import apiClient, { setTenantSubdomain } from '../services/api';
 
 const LoginPage = ({ onLoginSuccess }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [subdomain, setSubdomain] = useState('');
+  const [tenants, setTenants] = useState([]);
+  const [loadingTenants, setLoadingTenants] = useState(true);
+  React.useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await apiClient.get('/public/tenants');
+        if (mounted) setTenants(res.data || []);
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to load tenants', err);
+      } finally {
+        if (mounted) setLoadingTenants(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -12,10 +30,17 @@ const LoginPage = ({ onLoginSuccess }) => {
     setError('');
     setLoading(true);
     try {
-      const response = await apiClient.post('/auth/admin/dummy-login', { email, password });
+      if (!subdomain) throw new Error('Please enter tenant subdomain');
+      setTenantSubdomain(subdomain);
+      const response = await apiClient.post('/auth/admin/login', { email, password });
+      if (response.data?.admin?.name) {
+        localStorage.setItem('adminName', response.data.admin.name);
+      }
       onLoginSuccess(response.data.token);
     } catch (err) {
-      setError(err.response?.data?.message || 'Login failed. Please try again.');
+      // eslint-disable-next-line no-console
+      console.error('Admin login error:', err);
+      setError(err.response?.data?.message || err.message || 'Login failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -29,6 +54,13 @@ const LoginPage = ({ onLoginSuccess }) => {
           <h2 className="text-2xl font-bold text-gray-800">Admin Login</h2>
         </div>
         <form onSubmit={handleSubmit} className="space-y-6">
+          <div>
+            <label htmlFor="subdomain" className="block text-sm font-medium text-gray-700">Select Tenant</label>
+            <select id="subdomain" value={subdomain} onChange={(e) => setSubdomain(e.target.value)} required className="w-full px-4 py-2 mt-1 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="" disabled>{loadingTenants ? 'Loading tenants...' : 'Choose a tenant'}</option>
+              {tenants.map(t => <option key={t.id} value={t.subdomain}>{t.name} ({t.subdomain})</option>)}
+            </select>
+          </div>
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email Address</label>
             <input

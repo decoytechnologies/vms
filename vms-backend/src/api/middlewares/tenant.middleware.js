@@ -4,7 +4,7 @@ const { Tenant } = require('../../models');
 const tenantResolver = async (req, res, next) => {
   let subdomain;
   if (process.env.NODE_ENV === 'development') {
-    subdomain = req.header('x-tenant-subdomain') || 'dev';
+    subdomain = req.header('x-tenant-subdomain');
   } else {
     subdomain = req.hostname.split('.')[0];
   }
