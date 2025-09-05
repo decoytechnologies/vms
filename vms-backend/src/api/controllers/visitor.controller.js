@@ -1,7 +1,6 @@
 const { Op } = require('sequelize');
 const { Visitor, Visit, Employee, sequelize } = require('../../models');
-const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
-const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+const storageService = require('../services/storage.service');
 
 exports.checkIn = async (req, res) => {
   const { name, email, phone, employeeEmail } = req.body;
@@ -18,11 +17,22 @@ exports.checkIn = async (req, res) => {
       await t.rollback();
       return res.status(404).json({ message: `Host employee with email ${employeeEmail} not found.` });
     }
-    const approvalStatus = 'CHECKED_IN';
-    const approvalMethod = 'AUTO_APPROVED';
-    const newVisit = await Visit.create({ tenantId: tenant.id, visitorId: visitor.id, employeeId: hostEmployee.id, checkInGuardId: guard.id, status: approvalStatus, visitType: 'VISITOR', visitorPhotoUrl, idCardPhotoUrl, approvalMethod }, { transaction: t });
+
+    const visit = await Visit.create({
+      tenantId: tenant.id,
+      visitorId: visitor.id,
+      employeeId: hostEmployee.id,
+      checkInGuardId: guard.id,
+      status: 'CHECKED_IN',
+      visitType: 'VISITOR',
+      approvalMethod: 'AUTO_APPROVED',
+      checkInTimestamp: new Date(),
+      visitorPhotoUrl,
+      idCardPhotoUrl,
+    }, { transaction: t });
+
     await t.commit();
-    res.status(201).json({ message: `Visitor successfully checked in. Status: ${approvalStatus}`, visit: newVisit });
+    res.status(201).json({ message: 'Visitor checked in successfully.', visitId: visit.id });
   } catch (error) {
     await t.rollback();
     console.error('Check-in Error:', error);
@@ -36,8 +46,8 @@ exports.getActiveVisits = async (req, res) => {
     const activeVisits = await Visit.findAll({
       where: { tenantId, status: 'CHECKED_IN' },
       include: [
-        { model: Visitor, attributes: ['name', 'phone'] }, // Added phone for duplicate check
-        { model: Employee, attributes: ['name', 'email'], as: 'Employee' }
+        { model: Visitor, attributes: ['name', 'email', 'phone'] }, // include email for EOD details
+        { model: Employee, attributes: ['name', 'email', 'phone'], as: 'Employee' }
       ],
       attributes: ['id', 'checkInTimestamp'], // Include checkInTimestamp for stay duration
       order: [['checkInTimestamp', 'ASC']]
@@ -83,30 +93,25 @@ exports.getVisitDetailsForGuard = async (req, res) => {
       return res.status(404).json({ message: 'Visit details or images not found.' });
     }
 
-    const s3Client = new S3Client({ region: process.env.AWS_REGION });
-    const getParams = (key) => ({ Bucket: process.env.AWS_S3_BUCKET_NAME, Key: key });
-    const visitorPhotoUrl = await getSignedUrl(s3Client, new GetObjectCommand(getParams(visit.visitorPhotoUrl)), { expiresIn: 300 });
-    const idPhotoUrl = await getSignedUrl(s3Client, new GetObjectCommand(getParams(visit.idCardPhotoUrl)), { expiresIn: 300 });
+    const visitorPhotoUrl = await storageService.getSignedUrl(visit.visitorPhotoUrl, 300);
+    const idPhotoUrl = await storageService.getSignedUrl(visit.idCardPhotoUrl, 300);
 
     const phone = visit.Visitor.phone;
     const maskedPhone = `${phone.substring(0, 3)}****${phone.substring(phone.length - 2)}`;
 
     // The final response object now includes hostEmail
-    const visitDetails = {
+    res.json({
       visitorName: visit.Visitor.name,
       visitorEmail: visit.Visitor.email,
       visitorPhoneMasked: maskedPhone,
-      hostName: visit.Employee.name,
-      hostEmail: visit.Employee.email, // <-- ADDED THIS LINE
+      hostName: visit.Employee?.name || 'N/A',
+      hostEmail: visit.Employee?.email || 'N/A',
       checkInTime: visit.checkInTimestamp,
       visitorPhotoUrl,
       idPhotoUrl,
-    };
-
-    res.status(200).json(visitDetails);
+    });
   } catch (error) {
-    console.error("Error fetching guard visit details:", error);
-    res.status(500).json({ message: 'Could not generate visit details.' });
+    res.status(500).json({ message: 'Failed to load visit details.' });
   }
 };
 

@@ -1,0 +1,66 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:15
+    container_name: vms_db
+    environment:
+      POSTGRES_DB: ${DB_NAME:-vms_db}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    volumes:
+      - vms_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "5432:5432"
+
+  backend:
+    build:
+      context: ./vms-backend
+      dockerfile: Dockerfile
+    image: vms-backend:latest
+    container_name: vms_backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PORT: 8080
+      NODE_ENV: production
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-vms_db}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      JWT_SECRET: ${JWT_SECRET:-change_me}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      STORAGE_TYPE: ${STORAGE_TYPE:-S3}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_REGION: ${AWS_REGION}
+      AWS_S3_BUCKET_NAME: ${AWS_S3_BUCKET_NAME}
+      AZURE_STORAGE_ACCOUNT_NAME: ${AZURE_STORAGE_ACCOUNT_NAME}
+      AZURE_STORAGE_ACCOUNT_KEY: ${AZURE_STORAGE_ACCOUNT_KEY}
+      AZURE_CONTAINER_NAME: ${AZURE_CONTAINER_NAME}
+    ports:
+      - "8080:8080"
+
+  frontend:
+    build:
+      context: ./vms-frontend
+      dockerfile: Dockerfile
+    image: vms-frontend:latest
+    container_name: vms_frontend
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+    environment:
+      # If you later add runtime env injection, pass values here
+      BACKEND_URL: http://backend:8080
+
+volumes:
+  vms_pgdata:

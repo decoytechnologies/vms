@@ -13,8 +13,10 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.600.0",
     "@aws-sdk/s3-request-presigner": "^3.879.0",
+    "@azure/storage-blob": "^12.28.0",
     "axios": "^1.7.2",
     "bcrypt": "^5.1.1",
+    "chart.js": "^4.5.0",
     "cors": "^2.8.5",
     "csv-parse": "^6.1.0",
     "dotenv": "^16.4.5",
@@ -26,6 +28,7 @@
     "pdfkit": "^0.17.2",
     "pg": "^8.12.0",
     "pg-hstore": "^2.3.4",
+    "react-chartjs-2": "^5.3.0",
     "sequelize": "^6.37.3"
   },
   "devDependencies": {

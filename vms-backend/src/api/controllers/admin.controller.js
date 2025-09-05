@@ -1,11 +1,10 @@
 const { Op } = require('sequelize');
 const { Guard, Visit, Visitor, Employee } = require('../../models');
+const storageService = require('../services/storage.service');
 const { Parser } = require('json2csv');
 const csvParse = require('csv-parse/sync');
 const PDFDocument = require('pdfkit');
 const path = require('path');
-const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
-const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
 // --- Guard Management (CRUD) ---
 
@@ -107,10 +106,8 @@ exports.getVisitImageUrls = async (req, res) => {
     if (!visit || !visit.visitorPhotoUrl || !visit.idCardPhotoUrl) {
       return res.status(404).json({ message: 'Visit or images not found.' });
     }
-    const s3Client = new S3Client({ region: process.env.AWS_REGION });
-    const getParams = (key) => ({ Bucket: process.env.AWS_S3_BUCKET_NAME, Key: key });
-    const visitorPhotoUrl = await getSignedUrl(s3Client, new GetObjectCommand(getParams(visit.visitorPhotoUrl)), { expiresIn: 3600 });
-    const idPhotoUrl = await getSignedUrl(s3Client, new GetObjectCommand(getParams(visit.idCardPhotoUrl)), { expiresIn: 3600 });
+    const visitorPhotoUrl = await storageService.getSignedUrl(visit.visitorPhotoUrl, 3600);
+    const idPhotoUrl = await storageService.getSignedUrl(visit.idCardPhotoUrl, 3600);
     res.json({ visitorPhotoUrl, idPhotoUrl });
   } catch (error) {
     res.status(500).json({ message: 'Could not generate image URLs.' });
@@ -130,8 +127,8 @@ exports.getEndOfDayReport = async (req, res) => {
         checkInTimestamp: { [Op.gte]: today, [Op.lt]: tomorrow },
       },
       include: [
-        { model: Visitor, attributes: ['name'] },
-        { model: Employee, attributes: ['name'], as: 'Employee' },
+        { model: Visitor, attributes: ['name', 'email', 'phone'] },
+        { model: Employee, attributes: ['name', 'email', 'phone'], as: 'Employee' },
       ],
       order: [['checkInTimestamp', 'ASC']],
     });

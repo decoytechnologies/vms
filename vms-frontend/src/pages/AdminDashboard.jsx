@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import apiClient from '../services/api.js';
-import { Download, UserPlus, Trash2, Edit, X, Search, Copy, Check, Sun, Moon, Upload } from 'lucide-react';
+import { Download, UserPlus, Trash2, Edit, X, Search, Copy, Check, Sun, Moon, Upload, Users, Clock, CalendarDays, LogIn, BarChart3 } from 'lucide-react';
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import { Bar } from 'react-chartjs-2';
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Tooltip, Legend } from 'chart.js';
+ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
 // --- Main Dashboard Component ---
 const AdminDashboard = ({ onLogout }) => {
-  const [activeTab, setActiveTab] = useState('log');
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedVisit, setSelectedVisit] = useState(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isDark, setIsDark] = useState(true);
@@ -25,8 +28,8 @@ const AdminDashboard = ({ onLogout }) => {
 
   const renderTabContent = () => {
     switch (activeTab) {
-      case 'reports':
-        return <ReportsTab isDark={isDark} />;
+      case 'dashboard':
+        return <DashboardTab isDark={isDark} onOpenDetails={openVisitorDetails} />;
       case 'guards':
         return <GuardManagementTab isDark={isDark} />;
       case 'employees':
@@ -48,10 +51,11 @@ const AdminDashboard = ({ onLogout }) => {
           <img src={isDark ? '/darkthemelogo.png' : '/logo.png'} alt="Logo" className="h-16 w-auto" />
         </div>
           <nav className="space-y-2">
-            <button onClick={() => setActiveTab('log')} className={`w-full text-left px-4 py-2 rounded-lg transition duration-200 ${activeTab === 'log' ? tabActive : tabHover}`}>Visitor Log</button>
-            <button onClick={() => setActiveTab('reports')} className={`w-full text-left px-4 py-2 rounded-lg transition duration-200 ${activeTab === 'reports' ? tabActive : tabHover}`}>Reports</button>
-            <button onClick={() => setActiveTab('guards')} className={`w-full text-left px-4 py-2 rounded-lg transition duration-200 ${activeTab === 'guards' ? tabActive : tabHover}`}>Guard Management</button>
-            <button onClick={() => setActiveTab('employees')} className={`w-full text-left px-4 py-2 rounded-lg transition duration-200 ${activeTab === 'employees' ? tabActive : tabHover}`}>Employees</button>
+            <button onClick={() => setActiveTab('dashboard')} className={`w-full text-left px-4 py-2 rounded-lg transition duration-200 text-sm ${activeTab === 'dashboard' ? tabActive : tabHover}`}>Dashboard</button>
+            <button onClick={() => setActiveTab('log')} className={`w-full text-left px-4 py-2 rounded-lg transition duration-200 text-sm ${activeTab === 'log' ? tabActive : tabHover}`}>Visitor Log</button>
+            {/* Removed Reports tab */}
+            <button onClick={() => setActiveTab('guards')} className={`w-full text-left px-4 py-2 rounded-lg transition duration-200 text-sm ${activeTab === 'guards' ? tabActive : tabHover}`}>Guard Management</button>
+            <button onClick={() => setActiveTab('employees')} className={`w-full text-left px-4 py-2 rounded-lg transition duration-200 text-sm ${activeTab === 'employees' ? tabActive : tabHover}`}>Employees Management</button>
           </nav>
           <div className="mt-auto pt-4">
             <button onClick={onLogout} className="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition">Logout</button>
@@ -76,7 +80,7 @@ const AdminDashboard = ({ onLogout }) => {
         </main>
       </div>
 
-      {isDetailsModalOpen && <VisitorDetailsModal visit={selectedVisit} onClose={() => setIsDetailsModalOpen(false)} />}
+      {isDetailsModalOpen && <VisitorDetailsModal visit={selectedVisit} onClose={() => setIsDetailsModalOpen(false)} isDark={isDark} />}
     </div>
   );
 };
@@ -98,25 +102,294 @@ const CardTitle = ({ children, isDark }) => (
   <h2 className={`text-xl font-semibold mb-4 ${isDark ? 'text-slate-100' : 'text-gray-700'}`}>{children}</h2>
 );
 
+// --- Dashboard Tab Component ---
+const DashboardTab = ({ isDark, onOpenDetails }) => {
+  const [visits, setVisits] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [employees, setEmployees] = useState([]);
+
+  useEffect(() => {
+    Promise.all([
+      apiClient.get('/admin/visits'),
+      apiClient.get('/admin/employees')
+    ])
+      .then(([vRes, eRes]) => { setVisits(vRes.data); setEmployees(eRes.data); })
+      .finally(() => setLoading(false));
+  }, []);
+
+  const today = new Date();
+  const isSameDay = (d) => new Date(d).toDateString() === today.toDateString();
+
+  const visitsToday = visits.filter(v => isSameDay(v.checkInTimestamp));
+  const checkedInNow = visits.filter(v => v.status === 'CHECKED_IN');
+
+  let avgStayMins = null;
+  const completedToday = visitsToday.filter(v => v.actualCheckOutTimestamp);
+  if (completedToday.length) {
+    const totalMs = completedToday.reduce((sum, v) => sum + (new Date(v.actualCheckOutTimestamp) - new Date(v.checkInTimestamp)), 0);
+    avgStayMins = Math.round((totalMs / completedToday.length) / 60000);
+  }
+
+  // Hourly distribution for today (0-23)
+  const hourly = Array.from({ length: 24 }, () => 0);
+  visitsToday.forEach(v => { const h = new Date(v.checkInTimestamp).getHours(); hourly[h]++; });
+  const maxHour = Math.max(1, ...hourly);
+
+  // Top hosts today
+  const hostCountMap = new Map();
+  visitsToday.forEach(v => {
+    const name = v.Employee?.name || 'Unknown';
+    hostCountMap.set(name, (hostCountMap.get(name) || 0) + 1);
+  });
+  const topHosts = Array.from(hostCountMap.entries()).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+  return (
+    <div className="space-y-8">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <Card isDark={isDark}>
+          <div className="flex items-center justify-between">
+            <CardTitle isDark={isDark}>Visitors Today</CardTitle>
+            <LogIn size={20} className={`${isDark ? 'text-indigo-300' : 'text-blue-600'}`} />
+          </div>
+          <p className={`text-3xl font-bold ${isDark ? 'text-slate-100' : 'text-gray-800'}`}>{visitsToday.length}</p>
+          <p className={`${isDark ? 'text-slate-400' : 'text-gray-500'} text-sm mt-1`}>Total check-ins today</p>
+        </Card>
+        <Card isDark={isDark}>
+          <div className="flex items-center justify-between">
+            <CardTitle isDark={isDark}>Currently Inside</CardTitle>
+            <Users size={20} className={`${isDark ? 'text-emerald-300' : 'text-emerald-600'}`} />
+          </div>
+          <p className={`text-3xl font-bold ${isDark ? 'text-slate-100' : 'text-gray-800'}`}>{checkedInNow.length}</p>
+          <p className={`${isDark ? 'text-slate-400' : 'text-gray-500'} text-sm mt-1`}>Active visits</p>
+        </Card>
+        <Card isDark={isDark}>
+          <div className="flex items-center justify-between">
+            <CardTitle isDark={isDark}>Avg Stay (mins)</CardTitle>
+            <Clock size={20} className={`${isDark ? 'text-amber-300' : 'text-amber-600'}`} />
+          </div>
+          <p className={`text-3xl font-bold ${isDark ? 'text-slate-100' : 'text-gray-800'}`}>{avgStayMins !== null ? avgStayMins : '—'}</p>
+          <p className={`${isDark ? 'text-slate-400' : 'text-gray-500'} text-sm mt-1`}>Completed today</p>
+        </Card>
+        <Card isDark={isDark}>
+          <div className="flex items-center justify-between">
+            <CardTitle isDark={isDark}>Employees</CardTitle>
+            <Users size={20} className={`${isDark ? 'text-sky-300' : 'text-sky-600'}`} />
+          </div>
+          <p className={`text-3xl font-bold ${isDark ? 'text-slate-100' : 'text-gray-800'}`}>{employees.length}</p>
+          <p className={`${isDark ? 'text-slate-400' : 'text-gray-500'} text-sm mt-1`}>Total registered</p>
+        </Card>
+      </div>
+
+      <Card isDark={isDark}>
+        <div className="flex items-center justify-between mb-2">
+          <CardTitle isDark={isDark}>Check-ins by Hour (Today)</CardTitle>
+          <BarChart3 size={18} className={`${isDark ? 'text-slate-300' : 'text-slate-600'}`} />
+        </div>
+        <div className="h-56 md:h-64">
+          <Bar
+            data={{
+              labels: Array.from({ length: 24 }, (_, i) => i),
+              datasets: [
+                {
+                  label: 'Check-ins',
+                  data: hourly,
+                  backgroundColor: isDark ? 'rgba(129, 140, 248, 0.6)' : 'rgba(59, 130, 246, 0.6)',
+                  borderColor: isDark ? 'rgba(129, 140, 248, 1)' : 'rgba(59, 130, 246, 1)',
+                  borderWidth: 1,
+                },
+              ],
+            }}
+            options={{
+              animation: { duration: 400, easing: 'easeOutCubic' },
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: { legend: { display: false } },
+              scales: {
+                x: { ticks: { color: isDark ? '#94a3b8' : '#475569' }, grid: { display: false } },
+                y: { ticks: { color: isDark ? '#94a3b8' : '#475569' }, grid: { color: isDark ? '#334155' : '#e2e8f0' } },
+              },
+            }}
+          />
+        </div>
+      </Card>
+
+      <Card isDark={isDark}>
+        <div className="flex items-center justify-between mb-2">
+          <CardTitle isDark={isDark}>Top Hosts Today</CardTitle>
+        </div>
+        <div className="overflow-x-auto">
+          <table className={`min-w-full ${isDark ? 'bg-slate-800' : 'bg-white'}`}>
+            <thead className={`${isDark ? 'bg-slate-700' : 'bg-gray-200'}`}>
+              <tr>
+                <th className="text-left py-3 px-4 uppercase font-semibold text-sm">Host</th>
+                <th className="text-left py-3 px-4 uppercase font-semibold text-sm">Visits</th>
+              </tr>
+            </thead>
+            <tbody className={`${isDark ? 'text-slate-100' : 'text-gray-700'}`}>
+              {topHosts.length > 0 ? topHosts.map(([name, count]) => (
+                <tr key={name} className={`border-b ${isDark ? 'border-slate-700' : 'border-gray-200'}`}>
+                  <td className="py-3 px-4">{name}</td>
+                  <td className="py-3 px-4">{count}</td>
+                </tr>
+              )) : (
+                <tr><td className="py-3 px-4" colSpan="2">No data yet for today.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
+  );
+};
+
+const PersonDetailsModal = ({ person, role, onClose, isDark=true }) => {
+  if (!person) return null;
+  const isVisitor = role === 'visitor';
+  return (
+    <div onClick={onClose} className={`fixed inset-0 ${isDark ? 'bg-black/70' : 'bg-black/50'} flex items-center justify-center z-30 p-6`}>
+      <div onClick={(e)=>e.stopPropagation()} className={`${isDark ? 'bg-slate-900 text-slate-100' : 'bg-white'} p-6 rounded-xl shadow-2xl w-full max-w-md border ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-xl font-bold">{isVisitor ? 'Visitor' : 'Host'} Details</h3>
+          <button onClick={onClose} className={`${isDark ? 'text-slate-300 hover:text-white' : 'text-gray-600 hover:text-gray-900'}`}><X size={20} /></button>
+        </div>
+        <div className="space-y-3 text-sm">
+          <div>
+            <p className={`${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Name</p>
+            <p className={`font-semibold ${isDark ? 'text-slate-100' : 'text-gray-800'}`}>{person.name || 'N/A'}</p>
+          </div>
+          <div>
+            <p className={`${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Email</p>
+            <p className={`font-semibold ${isDark ? 'text-slate-100' : 'text-gray-800'}`}>{person.email || 'N/A'}</p>
+          </div>
+          <div>
+            <p className={`${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Phone</p>
+            <p className={`font-semibold ${isDark ? 'text-slate-100' : 'text-gray-800'}`}>{person.phone || 'N/A'}</p>
+          </div>
+          {isVisitor && person.checkInTimestamp && (
+            <div>
+              <p className={`${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Check-in Time</p>
+              <p className={`font-semibold ${isDark ? 'text-slate-100' : 'text-gray-800'}`}>{new Date(person.checkInTimestamp).toLocaleString()}</p>
+            </div>
+          )}
+          {isVisitor && person.visitorPhotoUrl && (
+            <div>
+              <p className={`${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Visitor Photo</p>
+              <div className={`mt-2 rounded-lg overflow-hidden ${isDark ? 'bg-slate-800' : 'bg-gray-100'}`}>
+                <img src={person.visitorPhotoUrl} alt="Visitor" className="w-full h-56 object-contain" onContextMenu={(e)=>e.preventDefault()} />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // --- Visitor Log Tab Component ---
 const VisitorLogTab = ({ onOpenDetails, isDark }) => {
   const [visits, setVisits] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isDownloadModalOpen, setDownloadModalOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [endOfDayReport, setEndOfDayReport] = useState(null);
+  const [personModal, setPersonModal] = useState({ open: false, role: null, person: null });
 
   useEffect(() => {
     apiClient.get('/admin/visits').then(res => setVisits(res.data)).finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    // Load EOD status once when entering the tab
+    apiClient.get('/admin/reports/end-of-day').then(res => setEndOfDayReport(res.data)).catch(() => {});
+  }, []);
+
+  const openPerson = (role, visitObj) => {
+    if (role === 'visitor') {
+      // enrich with check-in time and try to fetch photo via admin/visits/:id/images if needed
+      const enriched = { ...visitObj.Visitor, checkInTimestamp: visitObj.checkInTimestamp };
+      // Try best-effort fetch for photo (signed URL)
+      apiClient.get(`/admin/visits/${visitObj.id}/images`).then(r => setPersonModal({ open: true, role: 'visitor', person: { ...enriched, visitorPhotoUrl: r.data.visitorPhotoUrl } })).catch(() => setPersonModal({ open: true, role: 'visitor', person: enriched }));
+    } else {
+      setPersonModal({ open: true, role: 'host', person: visitObj.Employee });
+    }
+  };
+
+  const filteredVisits = React.useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (q.length < 3) return visits;
+    return visits.filter(v => {
+      const visitor = (v.Visitor?.name || '').toLowerCase();
+      const host = (v.Employee?.name || '').toLowerCase();
+      const phone = (v.Visitor?.phone || '').toLowerCase();
+      return visitor.includes(q) || host.includes(q) || phone.includes(q);
+    });
+  }, [visits, search]);
+
   return (
     <>
+      <Card isDark={isDark} className="mb-8">
+        <div className="flex flex-wrap justify-between items-center mb-4 gap-4">
+          <CardTitle isDark={isDark}>End-of-Day Status</CardTitle>
+          <button onClick={() => apiClient.get('/admin/reports/end-of-day').then(res => setEndOfDayReport(res.data))} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">Refresh</button>
+        </div>
+        {endOfDayReport && (
+          <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-6 border-t pt-4">
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Visitors Still Inside ({endOfDayReport.stillInside.length})</h3>
+              <ul className="space-y-2 text-sm">
+                {endOfDayReport.stillInside.length > 0 ? endOfDayReport.stillInside.slice(0,8).map(visit => (
+                  <li key={visit.id} className={`${isDark ? 'bg-slate-700' : 'bg-gray-50'} p-2 rounded`}>
+                    <button onClick={() => openPerson('visitor', visit)} className={`${isDark ? 'text-indigo-300 hover:text-indigo-200' : 'text-blue-600 hover:underline'} font-semibold`}>
+                      {visit.Visitor.name}
+                    </button>
+                    <span className={`${isDark ? 'text-slate-400' : 'text-gray-500'}`}> (Host: </span>
+                    <button onClick={() => openPerson('host', visit)} className={`${isDark ? 'text-emerald-300 hover:text-emerald-200' : 'text-green-700 hover:underline'} font-semibold`}>
+                      {visit.Employee.name}
+                    </button>
+                    <span className={`${isDark ? 'text-slate-400' : 'text-gray-500'}`}>)</span>
+                  </li>
+                )) : <p className="opacity-70">None</p>}
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Visitors Who Have Left ({endOfDayReport.haveLeft.length})</h3>
+              <ul className="space-y-2 text-sm">
+                {endOfDayReport.haveLeft.length > 0 ? endOfDayReport.haveLeft.slice(0,8).map(visit => (
+                  <li key={visit.id} className={`${isDark ? 'bg-slate-700' : 'bg-gray-50'} p-2 rounded`}>
+                    <button onClick={() => openPerson('visitor', visit)} className={`${isDark ? 'text-indigo-300 hover:text-indigo-200' : 'text-blue-600 hover:underline'} font-semibold`}>
+                      {visit.Visitor.name}
+                    </button>
+                    <span className={`${isDark ? 'text-slate-400' : 'text-gray-500'}`}> (Host: </span>
+                    <button onClick={() => openPerson('host', visit)} className={`${isDark ? 'text-emerald-300 hover:text-emerald-200' : 'text-green-700 hover:underline'} font-semibold`}>
+                      {visit.Employee.name}
+                    </button>
+                    <span className={`${isDark ? 'text-slate-400' : 'text-gray-500'}`}>)</span>
+                  </li>
+                )) : <p className="opacity-70">None</p>}
+              </ul>
+            </div>
+          </div>
+        )}
+      </Card>
+
       <Card isDark={isDark}>
         <div className="flex flex-wrap justify-between items-center mb-4 gap-4">
           <CardTitle isDark={isDark}>Full Visitor Log</CardTitle>
-          <button onClick={() => setDownloadModalOpen(true)} className="flex items-center space-x-2 bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg transition-transform transform hover:scale-105">
-            <Download size={18} />
-            <span>Download Report</span>
-          </button>
+          <div className="flex items-center gap-3 flex-1 md:flex-none">
+            <div className={`flex items-center w-full md:w-80 px-3 py-2 rounded-lg border ${isDark ? 'bg-slate-900 border-slate-700' : 'border-gray-300'}`}>
+              <Search size={18} className={`${isDark ? 'text-slate-300' : 'text-gray-500'} mr-2`} />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search by visitor, host, or phone (min 3 chars)"
+                className={`w-full outline-none ${isDark ? 'bg-transparent text-slate-100 placeholder-slate-400' : ''}`}
+              />
+            </div>
+            <button onClick={() => setDownloadModalOpen(true)} className="flex items-center space-x-2 bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg transition-transform transform hover:scale-105">
+              <Download size={18} />
+              <span>Download Report</span>
+            </button>
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className={`min-w-full ${isDark ? 'bg-slate-800' : 'bg-white'}`}>
@@ -133,7 +406,7 @@ const VisitorLogTab = ({ onOpenDetails, isDark }) => {
             <tbody className={`${isDark ? 'text-slate-100' : 'text-gray-700'}`}>
               {loading ? (
                 <tr><td colSpan="6" className="text-center py-4">Loading...</td></tr>
-              ) : visits.map(visit => {
+              ) : filteredVisits.map(visit => {
                 let lengthOfStay = 'N/A';
                 if (visit.actualCheckOutTimestamp) {
                   const durationMs = new Date(visit.actualCheckOutTimestamp) - new Date(visit.checkInTimestamp);
@@ -162,7 +435,16 @@ const VisitorLogTab = ({ onOpenDetails, isDark }) => {
           </table>
         </div>
       </Card>
-      {isDownloadModalOpen && <DownloadReportModal onClose={() => setDownloadModalOpen(false)} />}
+      {isDownloadModalOpen && <DownloadReportModal onClose={() => setDownloadModalOpen(false)} isDark={isDark} />}
+
+      {personModal.open && (
+        <PersonDetailsModal
+          person={personModal.person}
+          role={personModal.role}
+          onClose={() => setPersonModal({ open: false, role: null, person: null })}
+          isDark={isDark}
+        />
+      )}
     </>
   );
 };
@@ -225,53 +507,7 @@ const ReportsTab = ({ isDark }) => {
 
   return (
     <div className="space-y-8">
-      <Card isDark={isDark}>
-        <div className="flex justify-between items-center mb-4">
-          <CardTitle isDark={isDark}>End-of-Day Status</CardTitle>
-          <button onClick={handleShowReport} disabled={reportLoading} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg disabled:bg-blue-400">
-            {reportLoading ? 'Generating...' : 'Generate Report'}
-          </button>
-        </div>
-        {endOfDayReport && (
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6 border-t pt-4">
-            <ReportList title="Visitors Still Inside" data={endOfDayReport.stillInside} color="green" />
-            <ReportList title="Visitors Who Have Left" data={endOfDayReport.haveLeft} color="gray" />
-          </div>
-        )}
-      </Card>
-      <Card isDark={isDark}>
-        <CardTitle isDark={isDark}>Visitor History by Employee</CardTitle>
-        <div className="relative">
-          <div className="flex items-center space-x-4">
-            <input type="email" value={searchEmail} onChange={(e) => setSearchEmail(e.target.value)} placeholder="Enter host employee's name or email" className={`w-full px-4 py-2 border rounded-lg ${isDark ? 'border-slate-700 bg-slate-900' : 'border-gray-300'}`}/>
-            <button onClick={() => handleHistorySearch(searchEmail)} disabled={historyLoading} className="bg-blue-600 hover:bg-blue-700 text-white font-bold p-2.5 rounded-lg disabled:bg-blue-400">
-                {historyLoading ? '...' : <Search size={20} />}
-            </button>
-          </div>
-          {suggestions.length > 0 && (
-            <ul className={`absolute z-10 w-full mt-1 border rounded-lg shadow-lg ${isDark ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white'}`}>
-              {suggestions.map(emp => (
-                <li key={emp.id} onMouseDown={() => handleHistorySearch(emp.email)} className={`px-4 py-2 cursor-pointer ${isDark ? 'hover:bg-slate-700' : 'hover:bg-gray-100'}`}>
-                    {emp.name} <span className="text-gray-500">({emp.email})</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-        {historyReport && (
-          <div className="mt-6 border-t pt-4">
-            <h3 className="text-lg font-semibold">History for: {historyReport.employee.name}</h3>
-            <ul className="mt-2 space-y-2">
-                {historyReport.visits.length > 0 ? historyReport.visits.map(visit => (
-                    <li key={visit.id} className={`p-2 rounded text-sm ${isDark ? 'bg-slate-700' : 'bg-gray-50'}`}>
-                        <strong>{visit.Visitor.name}</strong> on {new Date(visit.checkInTimestamp).toLocaleDateString()}
-                    </li>
-                )) : <p>No visits found.</p>}
-            </ul>
-          </div>
-        )}
-        {historyError && <p className="text-red-500 mt-2">{historyError}</p>}
-      </Card>
+      {/* Kept for reference if Reports tab is re-enabled */}
     </div>
   );
 };
@@ -461,12 +697,12 @@ const VisitorDetailsModal = ({ visit, onClose, isDark = true }) => {
 
   const DetailItem = ({ label, value, field, isCopyable = false }) => (
     <div>
-      <p className="text-sm text-gray-500">{label}</p>
+      <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>{label}</p>
       <div className="flex items-center justify-between">
-        <p className="font-semibold text-gray-800 break-all">{value}</p>
+        <p className={`font-semibold break-all ${isDark ? 'text-slate-100' : 'text-gray-800'}`}>{value}</p>
         {isCopyable && (
-          <button onClick={() => handleCopyToClipboard(value, field)} className="ml-2 p-1 rounded-md hover:bg-gray-200 transition">
-            {copiedStates[field] ? <Check size={16} className="text-green-500" /> : <Copy size={16} className="text-gray-500" />}
+          <button onClick={() => handleCopyToClipboard(value, field)} className={`ml-2 p-1 rounded-md transition ${isDark ? 'hover:bg-slate-700' : 'hover:bg-gray-200'}`}>
+            {copiedStates[field] ? <Check size={16} className="text-green-500" /> : <Copy size={16} className={`${isDark ? 'text-slate-300' : 'text-gray-500'}`} />}
           </button>
         )}
       </div>
@@ -526,7 +762,7 @@ const VisitorDetailsModal = ({ visit, onClose, isDark = true }) => {
   );
 };
 
-const DownloadReportModal = ({ onClose }) => {
+const DownloadReportModal = ({ onClose, isDark = true }) => {
     const allColumns = [ 'Visitor Name', 'Visitor Email', 'Visitor Phone', 'Host Name', 'Host Email', 'Check-in Time', 'Check-out Time', 'Length of Stay', 'Status' ];
     const [selectedColumns, setSelectedColumns] = useState(new Set(allColumns));
     const [format, setFormat] = useState('csv');
@@ -571,28 +807,28 @@ const DownloadReportModal = ({ onClose }) => {
     };
     
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-30 p-4">
-            <div onClick={e => e.stopPropagation()} className="bg-white p-8 rounded-lg shadow-2xl w-full max-w-2xl">
+        <div className={`fixed inset-0 ${isDark ? 'bg-black/70' : 'bg-black/50'} flex items-center justify-center z-30 p-4`}>
+            <div onClick={e => e.stopPropagation()} className={`${isDark ? 'bg-slate-900 text-slate-100 border border-slate-700' : 'bg-white'} p-8 rounded-lg shadow-2xl w-full max-w-2xl`}>
                 <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-2xl font-bold">Configure Report</h3>
-                    <button onClick={onClose} className="text-gray-500 hover:text-gray-800"><X size={24} /></button>
+                    <h3 className={`text-2xl font-bold ${isDark ? 'text-slate-100' : 'text-gray-900'}`}>Configure Report</h3>
+                    <button onClick={onClose} className={`${isDark ? 'text-slate-300 hover:text-white' : 'text-gray-500 hover:text-gray-800'}`}><X size={24} /></button>
                 </div>
                 
                 <div className="mb-6">
-                    <label className="block font-semibold mb-2">Date Range:</label>
+                    <label className={`block font-semibold mb-2 ${isDark ? 'text-slate-200' : ''}`}>Date Range:</label>
                     <div className="flex items-center space-x-4">
-                        <DatePicker selected={startDate} onChange={date => setStartDate(date)} className="w-full px-4 py-2 border rounded-lg" />
-                        <span className="text-gray-500">to</span>
-                        <DatePicker selected={endDate} onChange={date => setEndDate(date)} className="w-full px-4 py-2 border rounded-lg" />
+                        <DatePicker selected={startDate} onChange={date => setStartDate(date)} className={`w-full px-4 py-2 border rounded-lg ${isDark ? 'bg-slate-800 border-slate-700 text-slate-100 placeholder-slate-400' : 'border-gray-300'}`} />
+                        <span className={`${isDark ? 'text-slate-400' : 'text-gray-500'}`}>to</span>
+                        <DatePicker selected={endDate} onChange={date => setEndDate(date)} className={`w-full px-4 py-2 border rounded-lg ${isDark ? 'bg-slate-800 border-slate-700 text-slate-100 placeholder-slate-400' : 'border-gray-300'}`} />
                     </div>
                 </div>
 
                 <div className="mb-6">
-                    <label className="block font-semibold mb-2">Include Columns:</label>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
+                    <label className={`block font-semibold mb-2 ${isDark ? 'text-slate-200' : ''}`}>Include Columns:</label>
+                    <div className={`grid grid-cols-2 md:grid-cols-3 gap-2 text-sm ${isDark ? 'text-slate-200' : ''}`}>
                         {allColumns.map(col => (
-                            <label key={col} className="flex items-center space-x-2 cursor-pointer">
-                                <input type="checkbox" checked={selectedColumns.has(col)} onChange={() => handleColumnToggle(col)} className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"/>
+                            <label key={col} className={`flex items-center space-x-2 cursor-pointer ${isDark ? 'hover:text-slate-100' : ''}`}>
+                                <input type="checkbox" checked={selectedColumns.has(col)} onChange={() => handleColumnToggle(col)} className={`${isDark ? 'h-4 w-4 rounded border-slate-600 text-indigo-500 focus:ring-indigo-500 bg-slate-800' : 'h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500'}`}/>
                                 <span>{col}</span>
                             </label>
                         ))}
@@ -600,16 +836,22 @@ const DownloadReportModal = ({ onClose }) => {
                 </div>
 
                 <div className="mb-8">
-                    <label className="block font-semibold mb-2">Format:</label>
-                    <div className="flex items-center space-x-4">
-                        <label className="flex items-center space-x-2 cursor-pointer"><input type="radio" name="format" value="csv" checked={format === 'csv'} onChange={() => setFormat('csv')} /><span>CSV</span></label>
-                        <label className="flex items-center space-x-2 cursor-pointer"><input type="radio" name="format" value="pdf" checked={format === 'pdf'} onChange={() => setFormat('pdf')} /><span>PDF</span></label>
+                    <label className={`block font-semibold mb-2 ${isDark ? 'text-slate-200' : ''}`}>Format:</label>
+                    <div className={`flex items-center space-x-4 ${isDark ? 'text-slate-200' : ''}`}>
+                        <label className="flex items-center space-x-2 cursor-pointer">
+                          <input type="radio" name="format" value="csv" checked={format === 'csv'} onChange={() => setFormat('csv')} className={`${isDark ? 'text-indigo-500' : ''}`} />
+                          <span>CSV</span>
+                        </label>
+                        <label className="flex items-center space-x-2 cursor-pointer">
+                          <input type="radio" name="format" value="pdf" checked={format === 'pdf'} onChange={() => setFormat('pdf')} className={`${isDark ? 'text-indigo-500' : ''}`} />
+                          <span>PDF</span>
+                        </label>
                     </div>
                 </div>
                 
                 <div className="flex justify-end space-x-4">
-                    <button type="button" onClick={onClose} className="py-2 px-4 bg-gray-200 rounded-lg hover:bg-gray-300">Cancel</button>
-                    <button type="button" onClick={handleDownload} disabled={isDownloading} className="py-2 px-6 bg-blue-600 text-white rounded-lg disabled:bg-blue-400">
+                    <button type="button" onClick={onClose} className={`py-2 px-4 rounded-lg ${isDark ? 'bg-slate-700 hover:bg-slate-600' : 'bg-gray-200 hover:bg-gray-300'}`}>Cancel</button>
+                    <button type="button" onClick={handleDownload} disabled={isDownloading} className={`py-2 px-6 rounded-lg ${isDark ? 'bg-indigo-600 hover:bg-indigo-500 text-white disabled:bg-indigo-400' : 'bg-blue-600 hover:bg-blue-700 text-white disabled:bg-blue-400'}`}>
                         {isDownloading ? 'Generating...' : 'Download'}
                     </button>
                 </div>

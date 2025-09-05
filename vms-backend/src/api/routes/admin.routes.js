@@ -3,8 +3,7 @@ const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/admin.controller');
 const { protect, isAdmin } = require('../middlewares/auth.middleware');
-const multer = require('multer');
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+const { uploadCSV } = require('../services/upload.service');
 
 // Guard Management
 router.get('/guards', [protect, isAdmin], adminController.getGuards);
@@ -18,7 +17,7 @@ router.post('/employees', [protect, isAdmin], adminController.createEmployee);
 router.put('/employees/:id', [protect, isAdmin], adminController.updateEmployee);
 router.delete('/employees/:id', [protect, isAdmin], adminController.deleteEmployee);
 router.get('/employees/template', [protect, isAdmin], adminController.downloadEmployeeTemplate);
-router.post('/employees/upload', [protect, isAdmin, upload.single('file')], adminController.uploadEmployeesCsv);
+router.post('/employees/upload', [protect, isAdmin, uploadCSV], adminController.uploadEmployeesCsv);
 
 // Reports and Data Fetching
 router.get('/visits', [protect, isAdmin], adminController.getAllVisits);

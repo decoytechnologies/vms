@@ -27,17 +27,20 @@ const VisitorDetailsModal = ({ visitId, onClose, isDark = true }) => {
 
   const DetailItem = ({ label, value, field, isCopyable = false }) => (
     <div>
-      <p className="text-sm text-gray-500">{label}</p>
+      <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>{label}</p>
       <div className="flex items-center justify-between">
-        <p className="font-semibold text-gray-800 break-all">{value}</p>
+        <p className={`font-semibold break-all ${isDark ? 'text-slate-100' : 'text-gray-800'}`}>{value}</p>
         {isCopyable && (
-          <button onClick={() => handleCopyToClipboard(value, field)} className="ml-2 p-1 rounded-md hover:bg-gray-200 transition">
-            {copiedStates[field] ? <Check size={16} className="text-green-500" /> : <Copy size={16} className="text-gray-500" />}
+          <button onClick={() => handleCopyToClipboard(value, field)} className={`ml-2 p-1 rounded-md transition ${isDark ? 'hover:bg-slate-700/60' : 'hover:bg-gray-200'}`}>
+            {copiedStates[field] ? <Check size={16} className="text-green-500" /> : <Copy size={16} className={`${isDark ? 'text-slate-400' : 'text-gray-500'}`} />}
           </button>
         )}
       </div>
     </div>
   );
+
+  const tabActiveClass = isDark ? 'border-indigo-500 text-indigo-300' : 'border-blue-500 text-blue-600';
+  const tabInactiveClass = isDark ? 'border-transparent text-slate-400 hover:text-slate-200' : 'border-transparent text-gray-500 hover:text-gray-700';
 
   return (
     <div onClick={onClose} className={`fixed inset-0 ${isDark ? 'bg-black/70' : 'bg-black/50'} flex items-center justify-center z-30 p-4`}>
@@ -48,7 +51,7 @@ const VisitorDetailsModal = ({ visitId, onClose, isDark = true }) => {
         </div>
         
         {loading ? (
-          <div className="flex-grow flex items-center justify-center"><p>Loading details...</p></div>
+          <div className="flex-grow flex items-center justify-center"><p className={`${isDark ? 'text-slate-300' : 'text-gray-600'}`}>Loading details...</p></div>
         ) : details ? (
           <div className="flex-grow grid grid-cols-1 md:grid-cols-3 gap-6 p-6 overflow-y-auto">
             {/* Details Column */}
@@ -67,8 +70,8 @@ const VisitorDetailsModal = ({ visitId, onClose, isDark = true }) => {
             <div className="md:col-span-2 flex flex-col">
               <div className={`border-b ${isDark ? 'border-slate-700' : 'border-slate-200'}`}>
                 <nav className="-mb-px flex space-x-6">
-                  <button onClick={() => setActiveTab('visitor')} className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'visitor' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500'}`}>Visitor Photo</button>
-                  <button onClick={() => setActiveTab('id')} className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'id' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500'}`}>ID Card</button>
+                  <button onClick={() => setActiveTab('visitor')} className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'visitor' ? tabActiveClass : tabInactiveClass}`}>Visitor Photo</button>
+                  <button onClick={() => setActiveTab('id')} className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'id' ? tabActiveClass : tabInactiveClass}`}>ID Card</button>
                 </nav>
               </div>
               <div className={`flex-grow mt-4 flex items-center justify-center rounded-lg overflow-hidden ${isDark ? 'bg-slate-800' : 'bg-gray-100'}`}>
@@ -81,7 +84,7 @@ const VisitorDetailsModal = ({ visitId, onClose, isDark = true }) => {
               </div>
             </div>
           </div>
-        ) : <div className="flex-grow flex items-center justify-center"><p>Could not load details.</p></div>}
+        ) : <div className="flex-grow flex items-center justify-center"><p className={`${isDark ? 'text-slate-300' : 'text-gray-600'}`}>Could not load details.</p></div>}
       </div>
     </div>
   );
