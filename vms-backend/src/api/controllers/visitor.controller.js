@@ -1,6 +1,7 @@
 const { Op } = require('sequelize');
 const { Visitor, Visit, Employee, sequelize } = require('../../models');
 const storageService = require('../services/storage.service');
+const { v4: uuidv4 } = require('uuid');
 
 exports.checkIn = async (req, res) => {
   const { name, email, phone, employeeEmail } = req.body;
@@ -18,25 +19,55 @@ exports.checkIn = async (req, res) => {
       return res.status(404).json({ message: `Host employee with email ${employeeEmail} not found.` });
     }
 
+    const approvalToken = uuidv4();
+    const ttlMinutes = parseInt(process.env.APPROVAL_TOKEN_TTL_MINUTES || '120', 10);
+    const expiresAt = new Date(Date.now() + ttlMinutes * 60000);
+
     const visit = await Visit.create({
       tenantId: tenant.id,
       visitorId: visitor.id,
       employeeId: hostEmployee.id,
       checkInGuardId: guard.id,
-      status: 'CHECKED_IN',
+      status: 'PENDING_APPROVAL',
       visitType: 'VISITOR',
-      approvalMethod: 'AUTO_APPROVED',
+      approvalMethod: 'PRE_APPROVED_EMAIL',
+      approvalToken,
+      approvalTokenExpiresAt: expiresAt,
       checkInTimestamp: new Date(),
       visitorPhotoUrl,
       idCardPhotoUrl,
     }, { transaction: t });
 
     await t.commit();
-    res.status(201).json({ message: 'Visitor checked in successfully.', visitId: visit.id });
+    // TODO: send email to host with approve/deny links using approvalToken (separate service)
+    res.status(201).json({ message: 'Approval requested. Awaiting host approval.', visitId: visit.id, status: visit.status, approvalToken });
   } catch (error) {
     await t.rollback();
     console.error('Check-in Error:', error);
     res.status(500).json({ message: 'An error occurred during the check-in process.' });
+  }
+};
+
+exports.guardOverrideApprove = async (req, res) => {
+  const { visitId } = req.params;
+  const { id: guardId } = req.user;
+  try {
+    const visit = await Visit.findByPk(visitId);
+    if (!visit) return res.status(404).json({ message: 'Visit not found.' });
+    // Allow override from any non-checked-out state
+    if (visit.status !== 'CHECKED_OUT') {
+      visit.status = 'CHECKED_IN';
+      visit.approvalMethod = 'AUTO_APPROVED';
+      visit.approvedAt = new Date();
+      visit.approvedByEmail = 'guard-override';
+      visit.checkInGuardId = visit.checkInGuardId || guardId;
+      await visit.save();
+      return res.status(200).json({ message: 'Visit approved by guard override.', status: visit.status });
+    }
+    return res.status(400).json({ message: 'Cannot override a checked-out visit.' });
+  } catch (error) {
+    console.error('Override approve failed', error);
+    res.status(500).json({ message: 'Failed to approve visit.' });
   }
 };
 
@@ -59,7 +90,6 @@ exports.getActiveVisits = async (req, res) => {
 };
 
 exports.checkOut = async (req, res) => {
-  // This function remains the same
   const { id: visitId } = req.params;
   const { id: guardId } = req.user;
   try {
@@ -75,6 +105,17 @@ exports.checkOut = async (req, res) => {
   }
 };
 
+exports.getVisitStatus = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const visit = await Visit.findByPk(id, { attributes: ['id', 'status'] });
+    if (!visit) return res.status(404).json({ message: 'Visit not found.' });
+    res.status(200).json(visit);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch visit status.' });
+  }
+};
+
 exports.getVisitDetailsForGuard = async (req, res) => {
   const { visitId } = req.params;
   const { tenantId } = req.user;
@@ -84,7 +125,6 @@ exports.getVisitDetailsForGuard = async (req, res) => {
       where: { id: visitId, tenantId },
       include: [
         { model: Visitor, attributes: ['name', 'email', 'phone'] },
-        // We now select the email from the Employee model
         { model: Employee, attributes: ['name', 'email'], as: 'Employee' },
       ],
     });
@@ -99,7 +139,6 @@ exports.getVisitDetailsForGuard = async (req, res) => {
     const phone = visit.Visitor.phone;
     const maskedPhone = `${phone.substring(0, 3)}****${phone.substring(phone.length - 2)}`;
 
-    // The final response object now includes hostEmail
     res.json({
       visitorName: visit.Visitor.name,
       visitorEmail: visit.Visitor.email,
@@ -115,20 +154,7 @@ exports.getVisitDetailsForGuard = async (req, res) => {
   }
 };
 
-// We comment out the notification service for now to bypass live API calls
-// const notificationService = require('../services/notification.service');
-
-
-    // --- TEMPORARY TEST CODE ---
-    // We are skipping the notification check and auto-approving all visitors.
-    console.log("--- DEVELOPMENT MODE: Skipping live email/chat check and auto-approving visitor. ---");
-    const approvalStatus = 'CHECKED_IN';
-    const approvalMethod = 'AUTO_APPROVED';
-    // --- END TEMPORARY TEST CODE ---
-    
-
-// ... (The rest of the controller functions remain the same)
-
+// Search APIs remain unchanged
 exports.searchVisitorByEmail = async (req, res) => {
   const { tenantId } = req.user;
   const { email } = req.query;
@@ -151,5 +177,23 @@ exports.searchVisitorsByPhone = async (req, res) => {
     res.status(200).json(visitors);
   } catch (error) {
     res.status(500).json({ message: 'Failed to search visitors.' });
+  }
+};
+
+exports.getPendingVisits = async (req, res) => {
+  const { tenantId } = req.user;
+  try {
+    const pending = await Visit.findAll({
+      where: { tenantId, status: 'PENDING_APPROVAL' },
+      include: [
+        { model: Visitor, attributes: ['name', 'email', 'phone'] },
+        { model: Employee, attributes: ['name', 'email'], as: 'Employee' },
+      ],
+      attributes: ['id', 'checkInTimestamp'],
+      order: [['checkInTimestamp', 'ASC']],
+    });
+    res.status(200).json(pending);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch pending approvals.' });
   }
 };

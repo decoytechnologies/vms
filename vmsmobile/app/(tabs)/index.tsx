@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
+import Toast from 'react-native-toast-message';
 import { useAuth } from '../_layout'; // Import useAuth to get the token
 import { useTheme } from '../../contexts/ThemeContext';
 import { 
@@ -39,6 +40,8 @@ type Photo = { uri: string; width: number; height: number };
 type Employee = { id: string; name: string; email: string };
 type Visitor = { id: string; name: string; email: string; phone: string };
 
+type CheckInResponse = { message: string; visitId?: string; status?: string };
+
 export default function CheckInScreen() {
   const { token: guardToken, tenantSubdomain } = useAuth(); // Get token from our Auth context
   const { theme, isDark } = useTheme();
@@ -49,6 +52,7 @@ export default function CheckInScreen() {
   const cameraRef = useRef<CameraView>(null);
   const [employeeSuggestions, setEmployeeSuggestions] = useState<Employee[]>([]);
   const [visitorSuggestions, setVisitorSuggestions] = useState<Visitor[]>([]);
+  const [pendingVisitId, setPendingVisitId] = useState<string | null>(null);
 
   // Effect for autocomplete and returning visitor checks
   useEffect(() => {
@@ -102,33 +106,13 @@ export default function CheckInScreen() {
   const checkIfVisitorIsCheckedIn = async (phone: string) => {
     if (!tenantSubdomain || phone.length < 10) return null;
     try {
-      console.log('Checking if visitor with phone', phone, 'is already checked in...');
       const response = await fetch(`${API_URL}/visitors/active`, {
         headers: { Authorization: `Bearer ${guardToken}`, 'x-tenant-subdomain': tenantSubdomain },
       });
       if (response.ok) {
         const activeVisits = await response.json();
-        console.log('Active visits received:', activeVisits.length, 'visits');
-        
-        // Debug: log the structure of active visits
-        if (activeVisits.length > 0) {
-          console.log('Sample visit structure:', JSON.stringify(activeVisits[0], null, 2));
-        }
-        
-        const checkedInVisitor = activeVisits.find((visit: any) => {
-          console.log('Checking visit:', visit.Visitor?.phone, 'against', phone);
-          return visit.Visitor && visit.Visitor.phone === phone;
-        });
-        
-        if (checkedInVisitor) {
-          console.log('Found checked-in visitor:', checkedInVisitor.Visitor.name);
-        } else {
-          console.log('No checked-in visitor found with phone:', phone);
-        }
-        
+        const checkedInVisitor = activeVisits.find((visit: any) => visit.Visitor && visit.Visitor.phone === phone);
         return checkedInVisitor;
-      } else {
-        console.error('Failed to fetch active visits, status:', response.status);
       }
     } catch (error) {
       console.error('Failed to check visitor status:', error);
@@ -140,8 +124,6 @@ export default function CheckInScreen() {
     const numericText = text.replace(/[^0-9]/g, '');
     if (numericText.length <= 10) {
       setFormData({ ...formData, phone: numericText, name: '', email: '' }); // Clear name/email when phone changes
-      
-      // Check if visitor is already checked in when phone number is complete
       if (numericText.length === 10) {
         const checkedInVisitor = await checkIfVisitorIsCheckedIn(numericText);
         if (checkedInVisitor) {
@@ -151,7 +133,6 @@ export default function CheckInScreen() {
           const hours = Math.floor(durationMs / 3600000);
           const minutes = Math.floor((durationMs % 3600000) / 60000);
           const stayDuration = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
-          
           Alert.alert(
             'Visitor Already Inside',
             `${checkedInVisitor.Visitor.name} is already checked in.\n\nCheck-in time: ${checkInTime.toLocaleString()}\nStay duration: ${stayDuration}\n\nPlease use the checkout option to check them out first.`,
@@ -165,17 +146,14 @@ export default function CheckInScreen() {
 
   const handleCheckIn = async () => {
     Keyboard.dismiss();
-    
     if (!tenantSubdomain) {
       Alert.alert('Error', 'Tenant information missing. Please log in again.');
       return;
     }
-    
     if (!visitorPhoto || !idPhoto) {
       Alert.alert('Error', 'Please provide both visitor and ID photos.');
       return;
     }
-    
     // Final check if visitor is already checked in
     if (formData.phone.length === 10) {
       const checkedInVisitor = await checkIfVisitorIsCheckedIn(formData.phone);
@@ -184,7 +162,6 @@ export default function CheckInScreen() {
         return;
       }
     }
-    
     setCheckInLoading(true);
     const submissionData = new FormData();
     Object.keys(formData).forEach(key => submissionData.append(key, (formData as any)[key]));
@@ -197,19 +174,46 @@ export default function CheckInScreen() {
         headers: { 'x-tenant-subdomain': tenantSubdomain, Authorization: `Bearer ${guardToken}` },
         body: submissionData,
       });
-      const data = await response.json();
+      const data: CheckInResponse = await response.json();
       if (!response.ok) throw new Error(data.message || 'Check-in failed');
-      Alert.alert('Success', data.message);
-      setFormData({ name: '', email: '', phone: '', employeeEmail: '' });
-      setVisitorPhoto(null);
-      setIdPhoto(null);
-      setVisitorSuggestions([]);
-      setEmployeeSuggestions([]);
+
+      if (data.status === 'PENDING_APPROVAL' && data.visitId) {
+        setPendingVisitId(data.visitId);
+        Toast.show({ type: 'info', position: 'top', text1: 'Awaiting host approval', topOffset: 60 });
+      } else {
+        Toast.show({ type: 'success', position: 'top', text1: data.message || 'Visitor checked in', topOffset: 60 });
+        setFormData({ name: '', email: '', phone: '', employeeEmail: '' });
+        setVisitorPhoto(null);
+        setIdPhoto(null);
+        setVisitorSuggestions([]);
+        setEmployeeSuggestions([]);
+      }
     } catch (error: any) {
       console.error('Check-in failed with error:', error);
       Alert.alert('Check-in Error', `Message: ${error.message}.`);
     } finally {
       setCheckInLoading(false);
+    }
+  };
+
+  const handleOverrideApprove = async () => {
+    if (!pendingVisitId || !tenantSubdomain) return;
+    try {
+      const response = await fetch(`${API_URL}/visitors/${pendingVisitId}/override-approve`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${guardToken}`, 'x-tenant-subdomain': tenantSubdomain },
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Override failed');
+      Toast.show({ type: 'success', position: 'top', text1: 'Approved by guard', topOffset: 60 });
+      setPendingVisitId(null);
+      setFormData({ name: '', email: '', phone: '', employeeEmail: '' });
+      setVisitorPhoto(null);
+      setIdPhoto(null);
+      setVisitorSuggestions([]);
+      setEmployeeSuggestions([]);
+    } catch (e: any) {
+      Toast.show({ type: 'error', position: 'top', text1: e.message || 'Failed to override', topOffset: 60 });
     }
   };
 
@@ -357,6 +361,16 @@ export default function CheckInScreen() {
               <Text style={getThemedButtonTextStyle(theme, checkInLoading)}>Submit Check-In</Text>
             )}
           </TouchableOpacity>
+
+          {pendingVisitId && (
+            <View style={[getThemedCardStyle(theme), styles.card, { padding: 15, borderColor: theme.warning, borderWidth: 1 }]}>
+              <Text style={[getThemedTextStyle(theme), { fontWeight: '600', marginBottom: 8 }]}>Awaiting host approval</Text>
+              <Text style={[getThemedTextStyle(theme, 'secondary'), { marginBottom: 12 }]}>For now you can approve this visitor yourself.</Text>
+              <TouchableOpacity style={[getThemedButtonStyle(theme), { alignSelf: 'flex-start', paddingHorizontal: 16 }]} onPress={handleOverrideApprove}>
+                <Text style={getThemedButtonTextStyle(theme)}>Approve Now</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

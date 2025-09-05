@@ -8,8 +8,15 @@ module.exports = (sequelize, DataTypes) => {
     visitType: { type: DataTypes.ENUM('VISITOR', 'EMPLOYEE_NO_ID'), allowNull: false },
     visitorPhotoUrl: { type: DataTypes.STRING },
     idCardPhotoUrl: { type: DataTypes.STRING },
-    // THIS IS THE FIX: Added 'CHAT_APPROVAL' to the list of allowed values
     approvalMethod: { type: DataTypes.ENUM('PRE_APPROVED_EMAIL', 'TEAMS_APPROVAL', 'CHAT_APPROVAL', 'AUTO_APPROVED') },
+    // Approval flow fields
+    approvalToken: { type: DataTypes.UUID, allowNull: true, unique: true },
+    approvalTokenExpiresAt: { type: DataTypes.DATE, allowNull: true },
+    approvedAt: { type: DataTypes.DATE, allowNull: true },
+    approvedByEmail: { type: DataTypes.STRING, allowNull: true },
+    deniedAt: { type: DataTypes.DATE, allowNull: true },
+    deniedByEmail: { type: DataTypes.STRING, allowNull: true },
+    denialReason: { type: DataTypes.STRING, allowNull: true },
   });
 
   Visit.associate = (models) => {

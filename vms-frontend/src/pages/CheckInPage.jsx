@@ -19,6 +19,8 @@ const CheckInPage = ({ isDark = false }) => {
   const [idPhoto, setIdPhoto] = useState(null);
   const [message, setMessage] = useState({ type: '', text: '' });
   const [loading, setLoading] = useState(false);
+  const [pendingVisitId, setPendingVisitId] = useState(null);
+  const [pendingStatus, setPendingStatus] = useState('');
 
   const [employeeSuggestions, setEmployeeSuggestions] = useState([]);
   const [visitorSuggestions, setVisitorSuggestions] = useState([]);
@@ -98,6 +100,8 @@ const CheckInPage = ({ isDark = false }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage({ type: '', text: '' });
+    setPendingVisitId(null);
+    setPendingStatus('');
     if (!visitorPhoto || !idPhoto) {
       setMessage({ type: 'error', text: 'Please capture both visitor and ID photos.' });
       return;
@@ -112,13 +116,34 @@ const CheckInPage = ({ isDark = false }) => {
       const response = await apiClient.post('/visitors/check-in', submissionData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      setMessage({ type: 'success', text: response.data.message });
-      clearForm();
+      const { message: msg, status, visitId } = response.data || {};
+      if (status === 'PENDING_APPROVAL') {
+        setPendingVisitId(visitId);
+        setPendingStatus('Awaiting host approval');
+        setMessage({ type: 'success', text: msg || 'Approval requested. Awaiting host approval.' });
+      } else {
+        setMessage({ type: 'success', text: msg || 'Visitor checked in successfully.' });
+        clearForm();
+      }
     } catch (error) {
       const errorMsg = error.response?.data?.message || 'An unexpected error occurred.';
       setMessage({ type: 'error', text: errorMsg });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleOverrideApprove = async () => {
+    if (!pendingVisitId) return;
+    try {
+      const res = await apiClient.post(`/visitors/${pendingVisitId}/override-approve`);
+      setMessage({ type: 'success', text: res.data?.message || 'Approved by guard override.' });
+      setPendingStatus('Approved');
+      setPendingVisitId(null);
+      clearForm();
+    } catch (error) {
+      const errorMsg = error.response?.data?.message || 'Failed to override approve.';
+      setMessage({ type: 'error', text: errorMsg });
     }
   };
 
@@ -155,6 +180,18 @@ const CheckInPage = ({ isDark = false }) => {
           </button>
           
           {message.text && ( <div className={`p-3 rounded-lg text-center font-medium ${ message.type === 'success' ? (isDark ? 'bg-green-900 text-green-100' : 'bg-green-100 text-green-800') : (isDark ? 'bg-red-900 text-red-100' : 'bg-red-100 text-red-800') }`}> {message.text} </div> )}
+
+          {pendingVisitId && (
+            <div className={`mt-4 p-4 rounded-lg border ${isDark ? 'border-yellow-600 bg-yellow-900/30 text-yellow-100' : 'border-yellow-300 bg-yellow-50 text-yellow-800'}`}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-semibold">{pendingStatus}</p>
+                  <p className="text-sm opacity-80">You may temporarily approve this visitor while email approval is being built.</p>
+                </div>
+                <button type="button" onClick={handleOverrideApprove} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md">Approve Now</button>
+              </div>
+            </div>
+          )}
         </form>
       </div>
 

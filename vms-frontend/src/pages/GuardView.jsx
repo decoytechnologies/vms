@@ -94,6 +94,7 @@ const VisitorDetailsModal = ({ visitId, onClose, isDark = true }) => {
 // --- Main Guard View Component ---
 const GuardView = ({ onLogout }) => {
   const [activeVisits, setActiveVisits] = useState([]);
+  const [pendingVisits, setPendingVisits] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedVisitId, setSelectedVisitId] = useState(null);
   const [isDark, setIsDark] = useState(true);
@@ -115,10 +116,14 @@ const GuardView = ({ onLogout }) => {
   const fetchActiveVisits = async () => {
     try {
       setLoading(true);
-      const response = await apiClient.get('/visitors/active');
-      setActiveVisits(response.data);
+      const [activeRes, pendingRes] = await Promise.all([
+        apiClient.get('/visitors/active'),
+        apiClient.get('/visitors/pending')
+      ]);
+      setActiveVisits(activeRes.data);
+      setPendingVisits(pendingRes.data);
     } catch (error) {
-      console.error("Failed to fetch active visitors");
+      console.error("Failed to fetch visitors");
     } finally {
       setLoading(false);
     }
@@ -126,7 +131,7 @@ const GuardView = ({ onLogout }) => {
 
   useEffect(() => {
     fetchActiveVisits();
-    const interval = setInterval(fetchActiveVisits, 15000);
+    const interval = setInterval(fetchActiveVisits, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -136,6 +141,16 @@ const GuardView = ({ onLogout }) => {
       fetchActiveVisits();
     } catch (error) {
       alert('Failed to check out visitor.');
+    }
+  };
+
+  const handleOverrideApprove = async (visitId) => {
+    try {
+      await apiClient.post(`/visitors/${visitId}/override-approve`);
+      showToast('Approved');
+      fetchActiveVisits();
+    } catch (e) {
+      showToast('Failed to approve');
     }
   };
 
@@ -171,6 +186,14 @@ const GuardView = ({ onLogout }) => {
                 }`}
               >
                 Check In
+              </button>
+              <button 
+                onClick={() => setActiveTab('pending')} 
+                className={`w-full text-left px-4 py-3 rounded-lg transition duration-200 font-medium ${
+                  activeTab === 'pending' ? tabActive : tabHover
+                }`}
+              >
+                Pending
               </button>
               <button 
                 onClick={() => setActiveTab('checkout')} 
@@ -217,6 +240,38 @@ const GuardView = ({ onLogout }) => {
             {activeTab === 'checkin' && (
               <div className={`${cardBg} p-6 rounded-lg shadow-lg border ${borderColor}`}>
                 <CheckInPage isDark={isDark} />
+              </div>
+            )}
+
+            {activeTab === 'pending' && (
+              <div className={`${cardBg} p-6 rounded-lg shadow-lg border ${borderColor}`}>
+                <h2 className={`text-xl font-semibold mb-4 ${isDark ? 'text-slate-100' : 'text-gray-700'}`}>Pending Approvals</h2>
+                {loading ? (
+                  <div className="flex justify-center items-center py-8">
+                    <p className={isDark ? 'text-slate-300' : 'text-gray-600'}>Loading...</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {pendingVisits.length > 0 ? pendingVisits.map(visit => (
+                      <div key={visit.id} className={`p-4 rounded-md border ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-gray-50 border-gray-200'}`}>
+                        <div className="flex items-center justify-between mb-2">
+                          <div>
+                            <div className={`font-semibold ${isDark ? 'text-slate-100' : 'text-gray-800'}`}>{visit.Visitor?.name}</div>
+                            <div className={`text-sm ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>Host: {visit.Employee?.name || 'N/A'}{visit.Employee?.email ? ` • ${visit.Employee.email}` : ''}</div>
+                            <div className={`text-xs ${isDark ? 'text-slate-400' : 'text-gray-500'}`}>Requested: {new Date(visit.checkInTimestamp).toLocaleString()}</div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => handleOverrideApprove(visit.id)} className="bg-green-600 hover:bg-green-700 text-white text-sm font-bold py-2 px-4 rounded-md transition">Approve Now</button>
+                          </div>
+                        </div>
+                      </div>
+                    )) : (
+                      <div className="text-center py-8">
+                        <p className={`${isDark ? 'text-slate-400' : 'text-gray-500'}`}>No pending approvals.</p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 

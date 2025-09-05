@@ -7,7 +7,10 @@ const { uploadVisitorImages } = require('../services/upload.service');
 
 router.post('/check-in', [protect, isGuard], uploadVisitorImages, visitorController.checkIn);
 router.get('/active', [protect, isGuard], visitorController.getActiveVisits);
+router.get('/pending', [protect, isGuard], visitorController.getPendingVisits);
+router.get('/:id/status', [protect, isGuard], visitorController.getVisitStatus);
 router.patch('/:id/checkout', [protect, isGuard], visitorController.checkOut);
+router.post('/:visitId/override-approve', [protect, isGuard], visitorController.guardOverrideApprove);
 router.get('/search-by-email', [protect, isGuard], visitorController.searchVisitorByEmail);
 router.get('/search-by-phone', [protect, isGuard], visitorController.searchVisitorsByPhone);
 // --- NEW ROUTE ---
